@@ -20,7 +20,9 @@ export async function api(path, { method = 'GET', body } = {}) {
       setToken(null)
       window.location.href = '/admin/login'
     }
-    throw new Error(data.message || 'Request failed')
+    const err = new Error(data.message || 'Request failed')
+    err.details = data.errors
+    throw err
   }
   return data
 }

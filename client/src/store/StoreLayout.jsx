@@ -1,13 +1,20 @@
 import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { captureUtm } from '../lib/utm'
 import AnnouncementBar from './components/AnnouncementBar'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import WhatsAppButton from './components/WhatsAppButton'
+import CartDrawer from './components/CartDrawer'
+import PixelTracker from './components/PixelTracker'
 
 export default function StoreLayout() {
   const { pathname } = useLocation()
+
+  useEffect(() => {
+    captureUtm()
+  }, [])
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -25,6 +32,8 @@ export default function StoreLayout() {
       </main>
       <Footer />
       <WhatsAppButton />
+      <CartDrawer />
+      <PixelTracker />
     </div>
   )
 }

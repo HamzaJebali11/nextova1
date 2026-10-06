@@ -45,7 +45,11 @@ function Drawer({ order, onClose, onChanged }) {
         </div>
         <div className="mb-1"><StatusBadge status={order.status} /></div>
         <div className="mb-5 text-xs text-gray-500">{fmtDate(order.createdAt)} · {order.source}</div>
-
+           {(order.utm?.source || order.utm?.campaign) && (
+  <div className="mb-5 text-xs text-gray-500">
+    Ad: {[order.utm.source, order.utm.medium, order.utm.campaign].filter(Boolean).join(' / ')}
+  </div>
+)}
         <section className="mb-5 rounded-xl bg-gray-50 p-4 text-sm">
           <div className="font-semibold">{c.name}</div>
           <div className="text-gray-600">{c.phone}</div>

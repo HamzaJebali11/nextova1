@@ -11,7 +11,9 @@ import Settings from './admin/pages/Settings'
 import StoreShell from './store/StoreShell'
 import Home from './store/pages/Home'
 import Shop from './store/pages/Shop'
-
+import Product from './store/pages/Product'
+import Checkout from './store/pages/Checkout'
+import OrderSuccess from './store/pages/OrderSuccess'
 export default function App() {
   return (
     <AuthProvider>
@@ -19,6 +21,9 @@ export default function App() {
         <Route element={<StoreShell />}>
           <Route path="/" element={<Home />} />
           <Route path="/shop" element={<Shop />} />
+          <Route path="/product/:slug" element={<Product />} />
+<Route path="/checkout" element={<Checkout />} />
+<Route path="/order-success" element={<OrderSuccess />} />
         </Route>
 
         <Route path="/admin/login" element={<Login />} />
