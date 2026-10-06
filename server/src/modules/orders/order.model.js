@@ -8,7 +8,7 @@ export const ORDER_STATUSES = [
 
 const itemSchema = new mongoose.Schema({
   product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
-  name: String,                // saved as a snapshot, so later edits don't change old orders
+  name: String,
   variantName: String,
   price: Number,
   qty: { type: Number, min: 1 },
@@ -39,21 +39,20 @@ const orderSchema = new mongoose.Schema({
     at: { type: Date, default: Date.now },
   }],
 
-  source: { type: String, default: 'website' },   // website | whatsapp | admin
+  source: { type: String, default: 'website' },
   utm: { source: String, medium: String, campaign: String },
   adminNotes: String,
   ip: String,
 }, { timestamps: true })
 
-orderSchema.pre('save', async function (next) {
+orderSchema.pre('save', async function () {
   if (this.isNew) {
     const counter = await Counter.findByIdAndUpdate(
-      'order', { $inc: { seq: 1 } }, { new: true, upsert: true }
+      'order', { $inc: { seq: 1 } }, { returnDocument: 'after', upsert: true }
     )
-    this.orderNumber = `NX-${counter.seq}`
+    this.orderNumber = `NX-${1000 + counter.seq}`
     this.statusHistory.push({ status: this.status, note: 'Order created' })
   }
-  next()
 })
 
 export default mongoose.model('Order', orderSchema)
