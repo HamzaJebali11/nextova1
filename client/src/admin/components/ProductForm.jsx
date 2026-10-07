@@ -4,7 +4,7 @@ import { Plus, Trash2, Star, X, Loader2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uploadImage } from '../../lib/upload'
 import { optimizeImg } from '../../lib/image'
-
+import ProductExtras from './ProductExtras'
 const blank = {
   name: { en: '', ar: '' },
   description: { en: '', ar: '' },
@@ -19,6 +19,9 @@ const blank = {
   tags: '',
   isActive: true,
   isFeatured: false,
+    costPrice: '',
+  faqs: [],
+  comparison: [],
 }
 
 function toForm(p) {
@@ -37,6 +40,13 @@ function toForm(p) {
     tags: (p.tags || []).join(', '),
     isActive: p.isActive ?? true,
     isFeatured: p.isFeatured ?? false,
+        costPrice: p.costPrice ?? '',
+    faqs: (p.faqs || []).map((x) => ({ q: { en: x.q?.en || '', ar: x.q?.ar || '' }, a: { en: x.a?.en || '', ar: x.a?.ar || '' } })),
+    comparison: (p.comparison || []).map((x) => ({
+      feature: { en: x.feature?.en || '', ar: x.feature?.ar || '' },
+      ours: { en: x.ours?.en || '', ar: x.ours?.ar || '' },
+      theirs: { en: x.theirs?.en || '', ar: x.theirs?.ar || '' },
+    })),
   }
 }
 
@@ -113,6 +123,9 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
       tags: f.tags.split(',').map((t) => t.trim()).filter(Boolean),
       isActive: f.isActive,
       isFeatured: f.isFeatured,
+            costPrice: Number(f.costPrice) || 0,
+      faqs: f.faqs.filter((x) => x.q.en.trim() && x.a.en.trim()),
+      comparison: f.comparison.filter((x) => x.feature.en.trim()),
     }
 
     try {
@@ -239,6 +252,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
               <label className="flex items-center gap-2"><input type="checkbox" checked={f.isFeatured} onChange={(e) => set('isFeatured', e.target.checked)} /> Featured on the home page</label>
             </div>
           </section>
+                    <ProductExtras f={f} set={set} />
         </div>
 
         <div className="flex justify-end gap-2 border-t p-4">

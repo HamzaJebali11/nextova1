@@ -1,16 +1,20 @@
 import ProductCard from './ProductCard'
 import { useStore } from '../storeContext'
 
-export default function ProductGrid({ items, loading, count = 8 }) {
+const wrap = 'flex flex-wrap justify-center gap-3 md:gap-5'
+const basis = 'basis-[calc(50%_-_0.375rem)] md:basis-[calc(33.333%_-_0.84rem)] lg:basis-[calc(25%_-_0.95rem)]'
+const basisCompact = 'basis-[calc(50%_-_0.375rem)] md:basis-[calc(33.333%_-_0.84rem)] xl:basis-[calc(25%_-_0.95rem)]'
+
+export default function ProductGrid({ items, loading, count = 8, compact = false }) {
   const { t } = useStore()
-  const grid = 'grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4'
+  const b = compact ? basisCompact : basis
 
   if (loading) {
     return (
-      <div className={grid}>
+      <div className={wrap}>
         {Array.from({ length: count }).map((_, i) => (
-          <div key={i} className="animate-pulse">
-            <div className="aspect-square rounded-2xl bg-gray-200" />
+          <div key={i} className={`${b} animate-pulse`}>
+            <div className="aspect-square rounded-3xl bg-gray-200" />
             <div className="mt-3 h-4 w-3/4 rounded bg-gray-200" />
             <div className="mt-2 h-4 w-1/3 rounded bg-gray-200" />
           </div>
@@ -22,8 +26,12 @@ export default function ProductGrid({ items, loading, count = 8 }) {
   if (items.length === 0) return <p className="py-16 text-center text-gray-500">{t('noProducts')}</p>
 
   return (
-    <div className={grid}>
-      {items.map((p, i) => <ProductCard key={p._id} p={p} index={i} />)}
+    <div className={wrap}>
+      {items.map((p, i) => (
+        <div key={p._id} className={`${b} min-w-0`}>
+          <ProductCard p={p} index={i} />
+        </div>
+      ))}
     </div>
   )
 }

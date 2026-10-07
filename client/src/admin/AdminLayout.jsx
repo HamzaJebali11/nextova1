@@ -2,16 +2,17 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from './useAuth'
 
-import { LayoutDashboard, ShoppingBag, Package, Tags, Settings as SettingsIcon, LogOut } from 'lucide-react'
+import { LayoutDashboard, ShoppingBag, Package, Tags, Star, Megaphone, Settings as SettingsIcon, LogOut } from 'lucide-react'
 
 const links = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
   { to: '/admin/products', label: 'Products', icon: Package },
   { to: '/admin/categories', label: 'Categories', icon: Tags },
+  { to: '/admin/reviews', label: 'Reviews', icon: Star },
+  { to: '/admin/ads', label: 'Ads & costs', icon: Megaphone },
   { to: '/admin/settings', label: 'Settings', icon: SettingsIcon },
 ]
-
 export default function AdminLayout() {
   const { admin, logout } = useAuth()
   const { pathname } = useLocation()

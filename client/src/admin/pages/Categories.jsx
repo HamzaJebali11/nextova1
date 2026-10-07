@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
+import { uploadImage } from '../../lib/upload'
+import { optimizeImg } from '../../lib/image'
 
-const blank = { name: { en: '', ar: '' }, parent: '', sortOrder: 0, isActive: true }
+const blank = { name: { en: '', ar: '' }, parent: '', sortOrder: 0, isActive: true, image: { url: '', publicId: '' } }
 const inputCls = 'w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-900'
 
 export default function Categories() {
@@ -9,6 +11,7 @@ export default function Categories() {
   const [f, setF] = useState(blank)
   const [editId, setEditId] = useState(null)
   const [error, setError] = useState('')
+  const [uploading, setUploading] = useState(false)
 
   const load = () => api('/categories/admin/all').then(setList)
   useEffect(() => { load() }, [])
@@ -20,6 +23,7 @@ export default function Categories() {
       parent: c.parent || '',
       sortOrder: c.sortOrder || 0,
       isActive: c.isActive,
+      image: { url: c.image?.url || '', publicId: c.image?.publicId || '' },
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -30,10 +34,34 @@ export default function Categories() {
     setError('')
   }
 
+  async function pickImage(e) {
+    const file = e.target.files[0]
+    e.target.value = ''
+    if (!file) return
+    setUploading(true)
+    setError('')
+    try {
+      setF((s) => ({ ...s, image: null }))
+      const img = await uploadImage(file)
+      setF((s) => ({ ...s, image: img }))
+    } catch (err) {
+      setError(err.message)
+      setF((s) => ({ ...s, image: { url: '', publicId: '' } }))
+    } finally {
+      setUploading(false)
+    }
+  }
+
   async function submit(e) {
     e.preventDefault()
     setError('')
-    const body = { name: f.name, parent: f.parent || null, sortOrder: Number(f.sortOrder) || 0, isActive: f.isActive }
+    const body = {
+      name: f.name,
+      parent: f.parent || null,
+      sortOrder: Number(f.sortOrder) || 0,
+      isActive: f.isActive,
+      image: f.image || { url: '', publicId: '' },
+    }
     try {
       if (editId) await api(`/categories/${editId}`, { method: 'PUT', body })
       else await api('/categories', { method: 'POST', body })
@@ -77,6 +105,19 @@ export default function Categories() {
           <input type="number" placeholder="Sort order" className={inputCls} value={f.sortOrder}
             onChange={(e) => setF({ ...f, sortOrder: e.target.value })} />
         </div>
+
+        <div className="mt-3 flex items-center gap-3">
+          {f.image?.url && <img src={optimizeImg(f.image.url, 160)} alt="" className="h-14 w-14 rounded-xl object-cover" />}
+          <label className="cursor-pointer rounded-lg border px-4 py-2 text-sm hover:bg-gray-100">
+            {uploading ? 'Uploading…' : f.image?.url ? 'Change photo' : 'Add category photo'}
+            <input type="file" accept="image/*" hidden onChange={pickImage} disabled={uploading} />
+          </label>
+          {f.image?.url && (
+            <button type="button" onClick={() => setF({ ...f, image: { url: '', publicId: '' } })}
+              className="text-sm text-red-600 hover:underline">Remove photo</button>
+          )}
+        </div>
+
         <div className="mt-3 flex items-center justify-between">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={f.isActive} onChange={(e) => setF({ ...f, isActive: e.target.checked })} />
@@ -84,7 +125,7 @@ export default function Categories() {
           </label>
           <div className="flex gap-2">
             {editId && <button type="button" onClick={reset} className="rounded-lg border px-4 py-2 hover:bg-gray-100">Cancel</button>}
-            <button className="rounded-lg bg-gray-900 px-4 py-2 text-white hover:bg-gray-700">{editId ? 'Save' : 'Add'}</button>
+            <button disabled={uploading} className="rounded-lg bg-gray-900 px-4 py-2 text-white hover:bg-gray-700 disabled:opacity-60">{editId ? 'Save' : 'Add'}</button>
           </div>
         </div>
       </form>
@@ -94,12 +135,17 @@ export default function Categories() {
         <ul className="divide-y">
           {list.map((c) => (
             <li key={c._id} className="flex items-center justify-between gap-3 p-4">
-              <div>
-                <div className="font-semibold">
-                  {c.parent && <span className="text-gray-400">{nameOf(c.parent)} › </span>}
-                  {c.name.en} {c.name.ar && <span className="text-gray-400">· {c.name.ar}</span>}
+              <div className="flex items-center gap-3">
+                {c.image?.url
+                  ? <img src={optimizeImg(c.image.url, 120)} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                  : <div className="h-12 w-12 rounded-xl bg-gray-100" />}
+                <div>
+                  <div className="font-semibold">
+                    {c.parent && <span className="text-gray-400">{nameOf(c.parent)} › </span>}
+                    {c.name.en} {c.name.ar && <span className="text-gray-400">· {c.name.ar}</span>}
+                  </div>
+                  <div className="text-xs text-gray-500">Order {c.sortOrder} · {c.isActive ? 'Visible' : 'Hidden'} · /{c.slug}</div>
                 </div>
-                <div className="text-xs text-gray-500">Order {c.sortOrder} · {c.isActive ? 'Visible' : 'Hidden'} · /{c.slug}</div>
               </div>
               <div className="flex gap-2 text-sm">
                 <button onClick={() => edit(c)} className="rounded-lg border px-3 py-1.5 hover:bg-gray-100">Edit</button>

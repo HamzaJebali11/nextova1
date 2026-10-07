@@ -18,6 +18,13 @@ const productSchema = new mongoose.Schema({
   price: { type: Number, required: true, min: 0 },
   compareAtPrice: Number,                       // old price, shows the discount
   sku: String,
+    costPrice: { type: Number, min: 0, default: 0, select: false },   // private: never sent to customers
+  faqs: [{ q: { en: String, ar: String }, a: { en: String, ar: String } }],
+  comparison: [{
+    feature: { en: String, ar: String },
+    ours: { en: String, ar: String },
+    theirs: { en: String, ar: String },
+  }],
   stock: { type: Number, default: 0, min: 0 },
   lowStockAlert: { type: Number, default: 5 },
   variants: [variantSchema],

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { MessageCircle, ShoppingBag, Zap } from 'lucide-react'
+import { Banknote, ShoppingBag, Truck, Zap } from 'lucide-react'
 import { api } from '../../lib/api'
 import { optimizeImg } from '../../lib/image'
 import { track } from '../../lib/pixel'
@@ -10,7 +10,11 @@ import { useCart } from '../../cart/cartContext'
 import QtyStepper from '../components/QtyStepper'
 import OrderForm from '../components/OrderForm'
 import ProductGrid from '../components/ProductGrid'
-
+import Reviews from '../components/Reviews'
+import { Stars } from '../components/Stars'
+import { WhatsAppIcon } from '../components/icons'
+import ProductCompare from '../components/ProductCompare'
+import ProductFaq from '../components/ProductFaq'
 function ProductView({ product, related }) {
   const { t, pick, money, settings } = useStore()
   const { add, setOpen } = useCart()
@@ -73,7 +77,7 @@ function ProductView({ product, related }) {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="grid gap-8 md:grid-cols-2 lg:gap-12">
         {/* Gallery */}
-        <div>
+        <div className="md:sticky md:top-24 md:self-start">
           <div className="relative aspect-square overflow-hidden rounded-3xl bg-gray-100">
             {images.length > 0 && (
               <AnimatePresence mode="wait">
@@ -110,6 +114,13 @@ function ProductView({ product, related }) {
             </Link>
           )}
           <h1 className="mt-1 text-2xl font-bold md:text-3xl">{pick(product.name)}</h1>
+
+          {product.ratingCount > 0 && (
+            <a href="#reviews" className="mt-2 flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600">
+              <Stars value={product.ratingAvg} size={18} />
+              <span>{product.ratingAvg} · {product.ratingCount} {t('reviewsCount')}</span>
+            </a>
+          )}
 
           <div className="mt-3 flex items-baseline gap-3">
             <span className="text-3xl font-extrabold">{money(unitPrice)}</span>
@@ -154,17 +165,23 @@ function ProductView({ product, related }) {
             </button>
             {waHref && (
               <a href={waHref} target="_blank" rel="noreferrer"
-                className="flex items-center justify-center gap-2 rounded-full border-2 border-green-500 py-3 font-semibold text-green-600 transition hover:bg-green-50">
-                <MessageCircle size={20} /> {t('askWhatsapp')}
+                className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] py-3.5 font-semibold text-white transition hover:brightness-110">
+                <WhatsAppIcon size={22} /> {t('askWhatsapp')}
               </a>
             )}
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs text-gray-600">
+            <div className="rounded-2xl bg-gray-50 p-3"><Banknote size={20} className="mx-auto mb-1 text-emerald-600" />{t('codTitle')}</div>
+            <div className="rounded-2xl bg-gray-50 p-3"><Truck size={20} className="mx-auto mb-1 text-emerald-600" />{t('fastTitle')}</div>
+            <div className="rounded-2xl bg-gray-50 p-3"><WhatsAppIcon size={20} className="mx-auto mb-1 text-emerald-600" />{t('supportTitle')}</div>
           </div>
 
           <AnimatePresence>
             {showForm && !out && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                <div className="mt-5 rounded-2xl border bg-white p-5 shadow-sm">
+                <div className="mt-5 rounded-3xl border bg-white p-5 shadow-sm">
                   <h3 className="mb-4 font-bold">{t('orderDetails')}</h3>
                   <OrderForm lines={[{ ...lineItem, qty: safeQty }]} />
                 </div>
@@ -180,6 +197,10 @@ function ProductView({ product, related }) {
           )}
         </div>
       </div>
+
+            <ProductCompare rows={product.comparison} />
+      <Reviews productId={product._id} />
+      <ProductFaq faqs={product.faqs} />
 
       {related.length > 0 && (
         <section className="mt-16">

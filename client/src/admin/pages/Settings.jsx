@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
+import { uploadImage } from '../../lib/upload'
+import { optimizeImg } from '../../lib/image'
 
 const inputCls = 'w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-900'
 
@@ -17,13 +19,30 @@ export default function Settings() {
   const [s, setS] = useState(null)
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
-  useEffect(() => { api('/settings').then(setS) }, [])
+  useEffect(() => {  api('/settings/admin').then(setS)}, [])
 
   if (!s) return <div className="text-gray-500">Loading…</div>
 
   const set = (k, v) => setS((x) => ({ ...x, [k]: v }))
   const setNested = (k, sub, v) => setS((x) => ({ ...x, [k]: { ...x[k], [sub]: v } }))
+
+  async function uploadLogo(e) {
+    const file = e.target.files[0]
+    e.target.value = ''
+    if (!file) return
+    setUploading(true)
+    setMsg('')
+    try {
+      const img = await uploadImage(file)
+      set('logoUrl', img.url)
+    } catch (err) {
+      setMsg(err.message)
+    } finally {
+      setUploading(false)
+    }
+  }
 
   async function save(e) {
     e.preventDefault()
@@ -34,10 +53,13 @@ export default function Settings() {
         method: 'PUT',
         body: {
           storeName: s.storeName,
+          logoUrl: s.logoUrl || '',
           currency: s.currency,
           whatsappNumber: s.whatsappNumber || '',
           deliveryFee: Number(s.deliveryFee) || 0,
+                    shippingCostPerOrder: Number(s.shippingCostPerOrder) || 0,
           freeDeliveryThreshold: Number(s.freeDeliveryThreshold) || 0,
+          salesPopup: s.salesPopup !== false,
           announcementBar: s.announcementBar,
           social: s.social,
           pixelId: s.pixelId || '',
@@ -57,6 +79,23 @@ export default function Settings() {
 
       <section className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
         <h2 className="font-semibold">General</h2>
+        <div className="flex items-center gap-4">
+          <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full bg-gradient-to-br from-emerald-500 to-emerald-700 text-2xl font-extrabold text-white ring-2 ring-gray-200">
+            {s.logoUrl
+              ? <img src={optimizeImg(s.logoUrl, 200)} alt="" className="h-full w-full object-cover" />
+              : (s.storeName || 'N').charAt(0).toUpperCase()}
+          </div>
+          <div className="space-y-2 text-sm">
+            <label className="inline-block cursor-pointer rounded-lg bg-gray-900 px-4 py-2 text-white hover:bg-gray-700">
+              {uploading ? 'Uploading…' : 'Upload logo'}
+              <input type="file" accept="image/*" hidden onChange={uploadLogo} disabled={uploading} />
+            </label>
+            {s.logoUrl && (
+              <button type="button" onClick={() => set('logoUrl', '')} className="ms-2 text-red-600 hover:underline">Remove</button>
+            )}
+            <p className="text-xs text-gray-500">A square image works best. It shows in a circle next to the store name.</p>
+          </div>
+        </div>
         <Field label="Store name">
           <input className={inputCls} value={s.storeName || ''} onChange={(e) => set('storeName', e.target.value)} />
         </Field>
@@ -78,16 +117,20 @@ export default function Settings() {
       </section>
 
       <section className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
-        <h2 className="font-semibold">Announcement bar</h2>
+        <h2 className="font-semibold">Storefront</h2>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={s.salesPopup !== false} onChange={(e) => set('salesPopup', e.target.checked)} />
+          Show the "someone just ordered" popup (uses real recent orders: first name, area and product only)
+        </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={!!s.announcementBar?.enabled}
             onChange={(e) => setNested('announcementBar', 'enabled', e.target.checked)} />
-          Show at the top of the store
+          Show the announcement bar at the top
         </label>
-        <Field label="Text (English)">
+        <Field label="Announcement text (English)">
           <input className={inputCls} value={s.announcementBar?.en || ''} onChange={(e) => setNested('announcementBar', 'en', e.target.value)} />
         </Field>
-        <Field label="Text (Arabic)">
+        <Field label="Announcement text (Arabic)">
           <input dir="rtl" className={inputCls} value={s.announcementBar?.ar || ''} onChange={(e) => setNested('announcementBar', 'ar', e.target.value)} />
         </Field>
       </section>
@@ -103,13 +146,13 @@ export default function Settings() {
         <Field label="TikTok link">
           <input className={inputCls} value={s.social?.tiktok || ''} onChange={(e) => setNested('social', 'tiktok', e.target.value)} />
         </Field>
-        <Field label="Meta Pixel ID" hint="For tracking your Facebook ads (we'll use it in the storefront)">
+        <Field label="Meta Pixel ID" hint="For tracking your Facebook ads">
           <input className={inputCls} value={s.pixelId || ''} onChange={(e) => set('pixelId', e.target.value.trim())} />
         </Field>
       </section>
 
       <div className="flex items-center gap-3">
-        <button disabled={busy} className="rounded-lg bg-gray-900 px-5 py-2.5 font-medium text-white hover:bg-gray-700 disabled:opacity-60">
+        <button disabled={busy || uploading} className="rounded-lg bg-gray-900 px-5 py-2.5 font-medium text-white hover:bg-gray-700 disabled:opacity-60">
           {busy ? 'Saving…' : 'Save settings'}
         </button>
         {msg && <span className="text-sm text-gray-600">{msg}</span>}

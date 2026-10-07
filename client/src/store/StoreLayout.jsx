@@ -8,6 +8,7 @@ import Footer from './components/Footer'
 import WhatsAppButton from './components/WhatsAppButton'
 import CartDrawer from './components/CartDrawer'
 import PixelTracker from './components/PixelTracker'
+import RecentOrderPopup from './components/RecentOrderPopup'
 
 export default function StoreLayout() {
   const { pathname } = useLocation()
@@ -32,6 +33,7 @@ export default function StoreLayout() {
       </main>
       <Footer />
       <WhatsAppButton />
+      <RecentOrderPopup />
       <CartDrawer />
       <PixelTracker />
     </div>

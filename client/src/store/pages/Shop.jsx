@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useStore } from '../storeContext'
 import ProductGrid from '../components/ProductGrid'
+import Suggestions from '../components/Suggestions'
 
 const SORTS = [
   ['newest', 'sortNewest'],
@@ -45,10 +46,18 @@ export default function Shop() {
   const q = sp.get('q')
   const activeCat = categories.find((c) => c.slug === sp.get('category'))
   const heading = q ? `${t('resultsFor')} “${q}”` : activeCat ? pick(activeCat.name) : t('shop')
-  const hasFilters = ['q', 'category', 'minPrice', 'maxPrice', 'onSale', 'inStock'].some((k) => sp.get(k))
+
+  const chips = [
+    q && { key: 'q', label: `“${q}”` },
+    activeCat && { key: 'category', label: pick(activeCat.name) },
+    sp.get('minPrice') && { key: 'minPrice', label: `${t('min')}: ${sp.get('minPrice')}` },
+    sp.get('maxPrice') && { key: 'maxPrice', label: `${t('max')}: ${sp.get('maxPrice')}` },
+    sp.get('onSale') && { key: 'onSale', label: t('onlySale') },
+    sp.get('inStock') && { key: 'inStock', label: t('inStockOnly') },
+  ].filter(Boolean)
 
   const catCls = (active) =>
-    `block w-full rounded-lg px-3 py-1.5 text-start transition ${
+    `block w-full rounded-xl px-3 py-2 text-start text-sm transition ${
       active ? 'bg-emerald-50 font-semibold text-emerald-700' : 'hover:bg-gray-100'
     }`
 
@@ -57,34 +66,40 @@ export default function Shop() {
       defaultValue={sp.get(name) || ''}
       onBlur={(e) => { if (e.target.value !== (sp.get(name) || '')) update({ [name]: e.target.value }) }}
       onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-      className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200" />
+      className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200" />
   )
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold md:text-3xl">{heading}</h1>
-          <p className="text-sm text-gray-500">{loading ? '…' : `${result.total} ${t('results')}`}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 rounded-full border px-4 py-2 text-sm lg:hidden">
-            <SlidersHorizontal size={16} /> {t('filters')}
+      <div className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-gray-900 to-emerald-900 p-6 text-white md:p-8">
+        <div className="absolute -end-8 -top-8 h-40 w-40 rounded-full bg-emerald-400/20 blur-2xl" />
+        <h1 className="relative text-2xl font-bold md:text-4xl">{heading}</h1>
+        <p className="relative mt-1 text-sm text-gray-300">{loading ? '…' : `${result.total} ${t('results')}`}</p>
+      </div>
+
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <button onClick={() => setShowFilters(!showFilters)}
+          className="flex items-center gap-2 rounded-full border px-4 py-2 text-sm lg:hidden">
+          <SlidersHorizontal size={16} /> {t('filters')}
+        </button>
+        {chips.map((c) => (
+          <button key={c.key} onClick={() => update({ [c.key]: '' })}
+            className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-sm text-emerald-700 hover:bg-emerald-100">
+            {c.label} <X size={14} />
           </button>
-          <select value={sp.get('sort') || 'newest'}
-            onChange={(e) => update({ sort: e.target.value === 'newest' ? '' : e.target.value })}
-            aria-label={t('sortBy')} className="rounded-full border bg-white px-4 py-2 text-sm outline-none">
-            {SORTS.map(([value, key]) => <option key={value} value={value}>{t(key)}</option>)}
-          </select>
-        </div>
+        ))}
+        <select value={sp.get('sort') || 'newest'}
+          onChange={(e) => update({ sort: e.target.value === 'newest' ? '' : e.target.value })}
+          aria-label={t('sortBy')} className="ms-auto rounded-full border bg-white px-4 py-2 text-sm outline-none">
+          {SORTS.map(([value, key]) => <option key={value} value={value}>{t(key)}</option>)}
+        </select>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[16rem_1fr]">
-        <aside className={`${showFilters ? 'block' : 'hidden'} space-y-6 lg:block`}>
+        <aside className={`${showFilters ? 'block' : 'hidden'} h-fit space-y-6 rounded-3xl border bg-white p-5 lg:sticky lg:top-24 lg:block`}>
           <div>
             <h3 className="mb-2 font-semibold">{t('categories')}</h3>
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-1">
               <li><button onClick={() => update({ category: '' })} className={catCls(!sp.get('category'))}>{t('allCategories')}</button></li>
               {categories.map((c) => (
                 <li key={c._id} className={c.parent ? 'ms-4' : ''}>
@@ -118,15 +133,15 @@ export default function Shop() {
             </label>
           </div>
 
-          {hasFilters && (
+          {chips.length > 0 && (
             <button onClick={() => setSp({})} className="text-sm font-medium text-emerald-600 hover:underline">
               {t('clearFilters')}
             </button>
           )}
         </aside>
 
-        <div>
-          <ProductGrid items={result.items} loading={loading} count={8} />
+        <div className="min-w-0">
+          <ProductGrid items={result.items} loading={loading} count={8} compact />
 
           {result.pages > 1 && (
             <div className="mt-8 flex items-center justify-center gap-3 text-sm">
@@ -137,6 +152,8 @@ export default function Shop() {
                 className="rounded-full border px-4 py-2 disabled:opacity-40">{t('next')}</button>
             </div>
           )}
+
+          {!loading && result.items.length < 4 && <Suggestions />}
         </div>
       </div>
     </div>

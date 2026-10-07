@@ -11,6 +11,7 @@ const itemSchema = new mongoose.Schema({
   name: String,
   variantName: String,
   price: Number,
+  cost: { type: Number, default: 0 },   // your cost per unit, saved at the time of the order
   qty: { type: Number, min: 1 },
   image: String,
 }, { _id: false })
@@ -30,6 +31,9 @@ const orderSchema = new mongoose.Schema({
   deliveryFee: { type: Number, default: 0 },
   total: Number,
   couponCode: String,
+
+  shippingCost: { type: Number, default: 0 },   // what delivery costs YOU
+  deliveredAt: Date,
 
   paymentMethod: { type: String, default: 'cod' },
   status: { type: String, enum: ORDER_STATUSES, default: 'new', index: true },

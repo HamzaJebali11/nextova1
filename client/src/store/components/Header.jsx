@@ -5,32 +5,34 @@ import { Languages, Menu, ShoppingBag, X } from 'lucide-react'
 import { useStore } from '../storeContext'
 import { useCart } from '../../cart/cartContext'
 import SearchBox from './SearchBox'
+import Logo from './Logo'
 
 export default function Header() {
-  const { t, pick, settings, categories, toggleLang } = useStore()
+  const { t, pick, categories, toggleLang } = useStore()
   const { count, setOpen } = useCart()
   const [menu, setMenu] = useState(false)
   const top = categories.filter((c) => !c.parent)
 
   const navCls = ({ isActive }) =>
-    `text-sm font-medium transition hover:text-emerald-600 ${isActive ? 'text-emerald-600' : 'text-gray-700'}`
+    `rounded-full px-3 py-1.5 text-sm font-medium transition hover:bg-emerald-50 hover:text-emerald-700 ${
+      isActive ? 'bg-emerald-50 text-emerald-700' : 'text-gray-700'
+    }`
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-white/85 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
         <button className="rounded-lg p-1 lg:hidden" onClick={() => setMenu(!menu)} aria-label={t('menu')}>
           {menu ? <X size={22} /> : <Menu size={22} />}
         </button>
 
-        <Link to="/" className="text-xl font-extrabold tracking-tight">
-          {settings.storeName || 'Nextova'}<span className="text-emerald-500">.</span>
-        </Link>
+        <Link to="/" aria-label="Home"><Logo /></Link>
 
-        <nav className="ms-6 hidden items-center gap-6 lg:flex">
+        <nav className="ms-4 hidden items-center gap-1 lg:flex">
           <NavLink to="/" end className={navCls}>{t('home')}</NavLink>
           <NavLink to="/shop" className={navCls}>{t('shop')}</NavLink>
           {top.slice(0, 4).map((c) => (
-            <Link key={c._id} to={`/shop?category=${c.slug}`} className="text-sm text-gray-600 transition hover:text-emerald-600">
+            <Link key={c._id} to={`/shop?category=${c.slug}`}
+              className="rounded-full px-3 py-1.5 text-sm text-gray-600 transition hover:bg-emerald-50 hover:text-emerald-700">
               {pick(c.name)}
             </Link>
           ))}

@@ -4,7 +4,8 @@ import { MessageCircle, Phone, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { STATUSES, money, fmtDate } from '../../lib/constants'
 import StatusBadge from '../components/StatusBadge'
-
+import ReceiptPanel from '../components/ReceiptPanel'
+import CostsPanel from '../components/CostsPanel'
 function Drawer({ order, onClose, onChanged }) {
   const [note, setNote] = useState(order.adminNotes || '')
   const [busy, setBusy] = useState(false)
@@ -66,7 +67,8 @@ function Drawer({ order, onClose, onChanged }) {
             </a>
           </div>
         </section>
-
+        <ReceiptPanel order={order} />
+        <CostsPanel order={order} onChanged={onChanged} />
         <section className="mb-5">
           <h3 className="mb-2 font-semibold">Items</h3>
           <ul className="divide-y text-sm">

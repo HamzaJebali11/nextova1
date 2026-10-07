@@ -71,6 +71,8 @@ router.get('/admin/all', protect, asyncHandler(async (req, res) => {
     Product.find(filter).sort({ createdAt: -1 }).skip((p - 1) * l).limit(l)
       .populate('category', 'name slug').lean(),
     Product.countDocuments(filter),
+        Product.find(filter).select('+costPrice').sort({ createdAt: -1 }).skip((p - 1) * l).limit(l)
+      .populate('category', 'name slug').lean(),
   ])
   res.json({ items, total, page: p, pages: Math.ceil(total / l) })
 }))
