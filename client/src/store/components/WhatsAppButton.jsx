@@ -1,17 +1,21 @@
 import { motion } from 'framer-motion'
+import { useLocation } from 'react-router-dom'
 import { useStore } from '../storeContext'
 import { WhatsAppIcon } from './icons'
 
 export default function WhatsAppButton() {
   const { settings, t } = useStore()
+  const { pathname } = useLocation()
   if (!settings.whatsappNumber) return null
+
+  const onProduct = pathname.startsWith('/product/')
   const href = `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(t('whatsappHello'))}`
 
   return (
     <motion.a href={href} target="_blank" rel="noreferrer" aria-label={t('chatWhatsapp')}
       initial={{ scale: 0 }} animate={{ scale: 1 }} whileHover={{ scale: 1.08 }}
       transition={{ type: 'spring', delay: 0.6 }}
-      className="group fixed bottom-5 end-5 z-40 h-16 w-16">
+      className={`group fixed end-5 z-40 h-16 w-16 ${onProduct ? 'bottom-24 md:bottom-5' : 'bottom-5'}`}>
       <span className="absolute inset-0 animate-ping rounded-full bg-[#25D366]/40" />
       <span className="nx-glow relative grid h-16 w-16 place-items-center rounded-full bg-[#25D366] text-white">
         <WhatsAppIcon size={34} />

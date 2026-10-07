@@ -48,14 +48,14 @@ router.get('/', asyncHandler(async (req, res) => {
   const l = Math.min(48, Math.max(1, Number(limit) || 12))
 
   const [items, total] = await Promise.all([
-    Product.find(filter).sort(SORTS[sort] || SORTS.newest).skip((p - 1) * l).limit(l)
+    Product.find(filter).select('-faqs -comparison').sort(SORTS[sort] || SORTS.newest).skip((p - 1) * l).limit(l)
       .populate('category', 'name slug').lean(),
     Product.countDocuments(filter),
   ])
   res.json({ items, total, page: p, pages: Math.ceil(total / l) })
 }))
 
-// admin: all products including hidden ones
+// admin: all products including hidden ones (with the private cost price)
 router.get('/admin/all', protect, asyncHandler(async (req, res) => {
   const { q, lowStock, page = 1, limit = 20 } = req.query
   const filter = {}
@@ -68,24 +68,38 @@ router.get('/admin/all', protect, asyncHandler(async (req, res) => {
   const p = Math.max(1, Number(page) || 1)
   const l = Math.min(100, Math.max(1, Number(limit) || 20))
   const [items, total] = await Promise.all([
-    Product.find(filter).sort({ createdAt: -1 }).skip((p - 1) * l).limit(l)
+    Product.find(filter).select('+costPrice').sort({ createdAt: -1 }).skip((p - 1) * l).limit(l)
       .populate('category', 'name slug').lean(),
     Product.countDocuments(filter),
-        Product.find(filter).select('+costPrice').sort({ createdAt: -1 }).skip((p - 1) * l).limit(l)
-      .populate('category', 'name slug').lean(),
   ])
   res.json({ items, total, page: p, pages: Math.ceil(total / l) })
 }))
 
-// public: single product + related products (good for upsells)
+// public: single product + related products + the free gift (only if it is available)
 router.get('/:slug', asyncHandler(async (req, res) => {
   const product = await Product.findOne({ slug: req.params.slug, isActive: true })
-    .populate('category', 'name slug').lean()
+    .populate('category', 'name slug')
+    .populate('freeGift.product', 'name images slug stock isActive variants')
+    .lean()
   if (!product) return res.status(404).json({ message: 'Product not found' })
+
+  const g = product.freeGift
+  let gift = null
+  if (g?.enabled && g.product && g.product.isActive && g.product.stock > 0 && !g.product.variants?.length) {
+    gift = {
+      minQty: g.minQty || 1,
+      qty: g.qty || 1,
+      name: g.product.name,
+      image: g.product.images?.[0]?.url,
+      slug: g.product.slug,
+    }
+  }
+  product.gift = gift
+  delete product.freeGift
 
   const related = await Product.find({
     isActive: true, _id: { $ne: product._id }, category: product.category?._id,
-  }).limit(4).lean()
+  }).select('-faqs -comparison').limit(4).lean()
   res.json({ product, related })
 }))
 

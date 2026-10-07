@@ -3,6 +3,8 @@ const API_URL = 'https://api.resend.com/emails'
 const esc = (v = '') =>
   String(v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 
+const r2 = (n) => Math.round(n * 100) / 100
+
 export async function sendOrderEmail(order, settings = {}) {
   const key = process.env.RESEND_API_KEY
   const recipients = (process.env.NOTIFY_EMAIL || '').split(',').map((s) => s.trim()).filter(Boolean)
@@ -18,7 +20,7 @@ export async function sendOrderEmail(order, settings = {}) {
     <tr>
       <td style="padding:8px;border-bottom:1px solid #eee">${esc(i.name)}${i.variantName ? ` <span style="color:#777">(${esc(i.variantName)})</span>` : ''}</td>
       <td style="padding:8px;border-bottom:1px solid #eee;text-align:center">${i.qty}</td>
-      <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${cur} ${i.price * i.qty}</td>
+      <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${i.price === 0 ? 'FREE' : `${cur} ${r2(i.price * i.qty)}`}</td>
     </tr>`).join('')
 
   const html = `
@@ -41,6 +43,7 @@ export async function sendOrderEmail(order, settings = {}) {
       <tr><td colspan="2" style="padding:8px;text-align:right"><b>Total</b></td><td style="padding:8px;text-align:right"><b>${cur} ${order.total}</b></td></tr>
     </table>
 
+    ${order.adminNotes ? `<p style="color:#b45309;font-size:13px">${esc(order.adminNotes)}</p>` : ''}
     ${ad ? `<p style="color:#777;font-size:13px">Came from ad: ${esc(ad)}</p>` : ''}
     ${site ? `<p><a href="${esc(site)}/admin/orders" style="display:inline-block;background:#111;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none">Open in admin</a></p>` : ''}
   </div>`

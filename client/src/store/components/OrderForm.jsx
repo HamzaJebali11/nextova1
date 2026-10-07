@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { api } from '../../lib/api'
@@ -34,10 +34,40 @@ export default function OrderForm({ lines, onPlaced }) {
   const [serverError, setServerError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  const submitted = useRef(false)
+  const lastLead = useRef('')
+  const linesRef = useRef(lines)
+  useEffect(() => { linesRef.current = lines })
+
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0)
   const delivery = deliveryFor(subtotal, settings)
   const total = subtotal + delivery
+  const linesKey = lines.map((l) => `${l.productId}|${l.variantName || ''}|${l.qty}`).join(',')
+
+  // remember an unfinished order once a valid phone number has been typed
+  useEffect(() => {
+    if (!phoneOk(f.phone)) return
+    const timer = setTimeout(() => {
+      if (submitted.current) return
+      const current = linesRef.current
+      if (current.length === 0) return
+      const body = {
+        phone: f.phone,
+        name: f.name.trim() || undefined,
+        area: AREAS.find((a) => a.id === f.area)?.en,
+        items: current.map((l) => ({ productId: l.productId, variantName: l.variantName || undefined, qty: l.qty })),
+        total: Math.round(current.reduce((s, l) => s + l.price * l.qty, 0) * 100) / 100,
+        utm: getUtm(),
+        website: f.website,
+      }
+      const signature = JSON.stringify(body)
+      if (signature === lastLead.current) return
+      lastLead.current = signature
+      api('/leads', { method: 'POST', body }).catch(() => {})
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [f.phone, f.name, f.area, f.website, linesKey])
 
   function validate() {
     const e = {}
@@ -54,6 +84,7 @@ export default function OrderForm({ lines, onPlaced }) {
     setServerError('')
     if (busy || lines.length === 0 || !validate()) return
     setBusy(true)
+    submitted.current = true
     try {
       const area = AREAS.find((a) => a.id === f.area)
       const res = await api('/orders', {
@@ -80,6 +111,7 @@ export default function OrderForm({ lines, onPlaced }) {
       onPlaced?.()
       navigate(`/order-success?n=${encodeURIComponent(res.orderNumber)}&t=${res.total}`)
     } catch (err) {
+      submitted.current = false
       setServerError(err.details?.map((d) => d.message).join(' · ') || err.message)
     } finally {
       setBusy(false)
@@ -110,6 +142,7 @@ export default function OrderForm({ lines, onPlaced }) {
             className={`${inputCls(errors.phone)} rounded-s-none`} placeholder="5512 3456" />
         </div>
       </Field>
+      <p className="-mt-2 text-xs text-gray-500">{t('leadNote')}</p>
 
       <Field label={t('area')} error={errors.area}>
         <select value={f.area} onChange={(e) => set('area', e.target.value)} className={`${inputCls(errors.area)} bg-white`}>

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import { optimizeImg } from '../../lib/image'
+import { giftCount } from '../../lib/pricing'
 import { track } from '../../lib/pixel'
 import { useStore } from '../storeContext'
 import { useCart } from '../../cart/cartContext'
@@ -51,6 +52,14 @@ export default function Checkout() {
                       <Trash2 size={16} />
                     </button>
                   </div>
+                  {giftCount(i) > 0 && (
+                    <div className="mt-2 flex items-center gap-2 rounded-xl bg-emerald-50 p-2 text-xs text-emerald-800">
+                      {i.gift.image && (
+                        <img src={optimizeImg(i.gift.image, 80)} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                      )}
+                      <span>🎁 {pick(i.gift.name)} × {giftCount(i)} · <b>{t('freeCaps')}</b></span>
+                    </div>
+                  )}
                 </div>
               </li>
             ))}

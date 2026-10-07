@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
 import { dict } from './i18n'
+import { extra } from './i18nExtra'
 import { StoreCtx } from './storeContext'
+
+const merged = {
+  en: { ...dict.en, ...extra.en },
+  ar: { ...dict.ar, ...extra.ar },
+}
 
 export function StoreProvider({ children }) {
   const [settings, setSettings] = useState({})
@@ -30,7 +36,7 @@ export function StoreProvider({ children }) {
       categories,
       lang,
       toggleLang: () => setLang((l) => (l === 'ar' ? 'en' : 'ar')),
-      t: (key) => dict[lang]?.[key] ?? dict.en[key] ?? key,
+      t: (key) => merged[lang]?.[key] ?? merged.en[key] ?? key,
       pick: (obj) => (obj && (obj[lang] || obj.en)) || '',
       money: (n) => {
         const v = Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 })

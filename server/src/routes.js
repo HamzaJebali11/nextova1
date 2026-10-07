@@ -8,6 +8,8 @@ import uploadRoutes from './modules/uploads/upload.routes.js'
 import reviewRoutes from './modules/reviews/review.routes.js'
 import adSpendRoutes from './modules/adspend/adspend.routes.js'
 import analyticsRoutes from './modules/analytics/analytics.routes.js'
+import leadRoutes from './modules/leads/lead.routes.js'
+import pageRoutes from './modules/pages/page.routes.js'
 
 const router = Router()
 
@@ -20,5 +22,7 @@ router.use('/uploads', uploadRoutes)
 router.use('/reviews', reviewRoutes)
 router.use('/adspend', adSpendRoutes)
 router.use('/analytics', analyticsRoutes)
+router.use('/leads', leadRoutes)
+router.use('/pages', pageRoutes)
 
 export default router

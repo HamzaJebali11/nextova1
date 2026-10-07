@@ -1,18 +1,23 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import {
+  LayoutDashboard, ShoppingBag, PhoneCall, Package, Tags, Star, Megaphone, FileText,
+  Settings as SettingsIcon, LogOut,
+} from 'lucide-react'
 import { useAuth } from './useAuth'
-
-import { LayoutDashboard, ShoppingBag, Package, Tags, Star, Megaphone, Settings as SettingsIcon, LogOut } from 'lucide-react'
 
 const links = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
+  { to: '/admin/leads', label: 'Unfinished orders', icon: PhoneCall },
   { to: '/admin/products', label: 'Products', icon: Package },
   { to: '/admin/categories', label: 'Categories', icon: Tags },
   { to: '/admin/reviews', label: 'Reviews', icon: Star },
   { to: '/admin/ads', label: 'Ads & costs', icon: Megaphone },
+  { to: '/admin/pages', label: 'Pages', icon: FileText },
   { to: '/admin/settings', label: 'Settings', icon: SettingsIcon },
 ]
+
 export default function AdminLayout() {
   const { admin, logout } = useAuth()
   const { pathname } = useLocation()
@@ -47,9 +52,9 @@ export default function AdminLayout() {
 
       <div className="min-w-0 flex-1">
         {/* Mobile top bar */}
-        <header className="flex items-center justify-between border-b bg-white px-4 py-3 md:hidden">
+        <header className="flex items-center justify-between gap-2 border-b bg-white px-4 py-3 md:hidden">
           <span className="font-bold">Nextova</span>
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-1 overflow-x-auto">
             {links.map(({ to, label, icon: Icon, end }) => (
               <NavLink key={to} to={to} end={end} className={linkClass} title={label}>
                 <Icon size={18} />

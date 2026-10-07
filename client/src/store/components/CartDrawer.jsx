@@ -2,9 +2,11 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ShoppingBag, Trash2, X } from 'lucide-react'
 import { optimizeImg } from '../../lib/image'
+import { giftCount } from '../../lib/pricing'
 import { useStore } from '../storeContext'
 import { useCart } from '../../cart/cartContext'
 import QtyStepper from './QtyStepper'
+import CartUpsell from './CartUpsell'
 
 export default function CartDrawer() {
   const { t, lang, pick, money, settings } = useStore()
@@ -69,10 +71,20 @@ export default function CartDrawer() {
                           <button onClick={() => remove(i.key)} aria-label={t('remove')}
                             className="rounded-full p-2 text-red-500 hover:bg-red-50"><Trash2 size={18} /></button>
                         </div>
+                        {giftCount(i) > 0 && (
+                          <div className="mt-2 flex items-center gap-2 rounded-xl bg-emerald-50 p-2 text-xs text-emerald-800">
+                            {i.gift.image && (
+                              <img src={optimizeImg(i.gift.image, 80)} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                            )}
+                            <span>🎁 {pick(i.gift.name)} × {giftCount(i)} · <b>{t('freeCaps')}</b></span>
+                          </div>
+                        )}
                       </div>
                     </li>
                   ))}
                 </ul>
+
+                <CartUpsell />
 
                 <div className="border-t p-4">
                   <div className="mb-3 flex justify-between font-semibold">

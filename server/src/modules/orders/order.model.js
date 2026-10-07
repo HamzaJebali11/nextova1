@@ -50,12 +50,23 @@ const orderSchema = new mongoose.Schema({
 }, { timestamps: true })
 
 orderSchema.pre('save', async function () {
+  this.$locals.wasNew = this.isNew
   if (this.isNew) {
     const counter = await Counter.findByIdAndUpdate(
       'order', { $inc: { seq: 1 } }, { returnDocument: 'after', upsert: true }
     )
     this.orderNumber = `NX-${1000 + counter.seq}`
     this.statusHistory.push({ status: this.status, note: 'Order created' })
+  }
+})
+
+// a new order turns the customer's unfinished-order lead into "ordered"
+orderSchema.post('save', async function (doc) {
+  if (!doc.$locals?.wasNew) return
+  try {
+    await mongoose.model('Lead').updateMany({ phone: doc.customer.phone }, { status: 'ordered' })
+  } catch {
+    // leads are optional: never block an order because of them
   }
 })
 

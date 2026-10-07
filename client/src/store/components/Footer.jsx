@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { api } from '../../lib/api'
 import { useStore } from '../storeContext'
 import Logo from './Logo'
 import { WhatsAppIcon } from './icons'
@@ -7,6 +9,14 @@ const year = new Date().getFullYear()
 
 export default function Footer() {
   const { t, pick, settings, categories } = useStore()
+  const [pages, setPages] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+    api('/pages').then((d) => { if (!cancelled) setPages(d) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
   const top = categories.filter((c) => !c.parent).slice(0, 6)
   const social = settings.social || {}
   const links = [['Facebook', social.facebook], ['Instagram', social.instagram], ['TikTok', social.tiktok]]
@@ -49,8 +59,13 @@ export default function Footer() {
         </div>
 
         <div>
-          <h4 className="mb-4 font-semibold text-white">{t('contact')}</h4>
+          <h4 className="mb-4 font-semibold text-white">{pages.length ? t('infoTitle') : t('contact')}</h4>
           <ul className="space-y-2 text-sm">
+            {pages.map((p) => (
+              <li key={p.slug}>
+                <Link to={`/page/${p.slug}`} className="transition hover:text-white">{pick(p.title)}</Link>
+              </li>
+            ))}
             <li>{t('codTitle')}</li>
             <li>{t('fastTitle')} · {t('fastSub')}</li>
             {links.map(([label, url]) => (

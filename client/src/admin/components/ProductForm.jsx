@@ -5,12 +5,15 @@ import { api } from '../../lib/api'
 import { uploadImage } from '../../lib/upload'
 import { optimizeImg } from '../../lib/image'
 import ProductExtras from './ProductExtras'
+import ProductOffers from './ProductOffers'
+
 const blank = {
   name: { en: '', ar: '' },
   description: { en: '', ar: '' },
   category: '',
   price: '',
   compareAtPrice: '',
+  costPrice: '',
   stock: 0,
   lowStockAlert: 5,
   sku: '',
@@ -19,9 +22,10 @@ const blank = {
   tags: '',
   isActive: true,
   isFeatured: false,
-    costPrice: '',
   faqs: [],
   comparison: [],
+  packs: [],
+  freeGift: { enabled: false, product: '', minQty: 1, qty: 1 },
 }
 
 function toForm(p) {
@@ -32,6 +36,7 @@ function toForm(p) {
     category: p.category?._id || p.category || '',
     price: p.price ?? '',
     compareAtPrice: p.compareAtPrice ?? '',
+    costPrice: p.costPrice ?? '',
     stock: p.stock ?? 0,
     lowStockAlert: p.lowStockAlert ?? 5,
     sku: p.sku || '',
@@ -40,13 +45,26 @@ function toForm(p) {
     tags: (p.tags || []).join(', '),
     isActive: p.isActive ?? true,
     isFeatured: p.isFeatured ?? false,
-        costPrice: p.costPrice ?? '',
-    faqs: (p.faqs || []).map((x) => ({ q: { en: x.q?.en || '', ar: x.q?.ar || '' }, a: { en: x.a?.en || '', ar: x.a?.ar || '' } })),
+    faqs: (p.faqs || []).map((x) => ({
+      q: { en: x.q?.en || '', ar: x.q?.ar || '' },
+      a: { en: x.a?.en || '', ar: x.a?.ar || '' },
+    })),
     comparison: (p.comparison || []).map((x) => ({
       feature: { en: x.feature?.en || '', ar: x.feature?.ar || '' },
       ours: { en: x.ours?.en || '', ar: x.ours?.ar || '' },
       theirs: { en: x.theirs?.en || '', ar: x.theirs?.ar || '' },
     })),
+    packs: (p.packs || []).map((x) => ({
+      qty: x.qty,
+      price: x.price,
+      badge: { en: x.badge?.en || '', ar: x.badge?.ar || '' },
+    })),
+    freeGift: {
+      enabled: !!p.freeGift?.enabled,
+      product: p.freeGift?.product?._id || p.freeGift?.product || '',
+      minQty: p.freeGift?.minQty || 1,
+      qty: p.freeGift?.qty || 1,
+    },
   }
 }
 
@@ -115,6 +133,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
       category: f.category || null,
       price: Number(f.price),
       compareAtPrice: f.compareAtPrice === '' ? null : Number(f.compareAtPrice),
+      costPrice: Number(f.costPrice) || 0,
       stock: variants.length ? variants.reduce((sum, v) => sum + v.stock, 0) : Number(f.stock) || 0,
       lowStockAlert: Number(f.lowStockAlert) || 0,
       sku: f.sku,
@@ -123,9 +142,17 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
       tags: f.tags.split(',').map((t) => t.trim()).filter(Boolean),
       isActive: f.isActive,
       isFeatured: f.isFeatured,
-            costPrice: Number(f.costPrice) || 0,
       faqs: f.faqs.filter((x) => x.q.en.trim() && x.a.en.trim()),
       comparison: f.comparison.filter((x) => x.feature.en.trim()),
+      packs: f.packs
+        .filter((x) => Number(x.qty) >= 2 && x.price !== '' && Number(x.price) >= 0)
+        .map((x) => ({ qty: Number(x.qty), price: Number(x.price), badge: x.badge })),
+      freeGift: {
+        enabled: !!(f.freeGift.enabled && f.freeGift.product),
+        product: f.freeGift.product || undefined,
+        minQty: Number(f.freeGift.minQty) || 1,
+        qty: Number(f.freeGift.qty) || 1,
+      },
     }
 
     try {
@@ -252,7 +279,9 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
               <label className="flex items-center gap-2"><input type="checkbox" checked={f.isFeatured} onChange={(e) => set('isFeatured', e.target.checked)} /> Featured on the home page</label>
             </div>
           </section>
-                    <ProductExtras f={f} set={set} />
+
+          <ProductOffers f={f} set={set} selfId={product?._id} />
+          <ProductExtras f={f} set={set} />
         </div>
 
         <div className="flex justify-end gap-2 border-t p-4">

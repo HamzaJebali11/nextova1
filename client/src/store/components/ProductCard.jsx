@@ -13,6 +13,9 @@ export default function ProductCard({ p, index = 0 }) {
 
   const out = p.stock <= 0
   const hasVariants = p.variants?.length > 0
+  const hasPacks = p.packs?.length > 0
+  const hasGift = !!p.freeGift?.enabled
+  const needsPage = hasVariants || hasPacks || hasGift
   const off = p.compareAtPrice > p.price ? Math.round((1 - p.price / p.compareAtPrice) * 100) : 0
 
   function quickAdd() {
@@ -39,6 +42,11 @@ export default function ProductCard({ p, index = 0 }) {
             {t('outOfStock')}
           </span>
         )}
+        {!out && (hasPacks || hasGift) && (
+          <span className="absolute bottom-2 start-2 rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white shadow">
+            {hasGift ? `🎁 ${t('freeGift')}` : t('packDeal')}
+          </span>
+        )}
       </Link>
 
       <div className="px-1 pb-1 pt-3">
@@ -57,10 +65,10 @@ export default function ProductCard({ p, index = 0 }) {
           {off > 0 && <s className="text-xs text-gray-400">{money(p.compareAtPrice)}</s>}
         </div>
 
-        {!out && (hasVariants ? (
+        {!out && (needsPage ? (
           <Link to={`/product/${p.slug}`}
             className="mt-3 block rounded-full border py-2 text-center text-sm font-medium transition hover:bg-gray-900 hover:text-white">
-            {t('selectOptions')}
+            {hasVariants ? t('selectOptions') : t('seeOffers')}
           </Link>
         ) : (
           <button onClick={quickAdd}

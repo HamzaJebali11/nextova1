@@ -1,47 +1,59 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Banknote, ShoppingBag, Truck, Zap } from 'lucide-react'
 import { api } from '../../lib/api'
 import { optimizeImg } from '../../lib/image'
 import { track } from '../../lib/pixel'
+import { bestTotal, giftCount } from '../../lib/pricing'
 import { useStore } from '../storeContext'
 import { useCart } from '../../cart/cartContext'
 import QtyStepper from '../components/QtyStepper'
 import OrderForm from '../components/OrderForm'
 import ProductGrid from '../components/ProductGrid'
 import Reviews from '../components/Reviews'
-import { Stars } from '../components/Stars'
-import { WhatsAppIcon } from '../components/icons'
+import PackOffers from '../components/PackOffers'
 import ProductCompare from '../components/ProductCompare'
 import ProductFaq from '../components/ProductFaq'
+import { Stars } from '../components/Stars'
+import { WhatsAppIcon } from '../components/icons'
+
 function ProductView({ product, related }) {
   const { t, pick, money, settings } = useStore()
   const { add, setOpen } = useCart()
   const variants = product.variants || []
   const images = product.images || []
+  const formRef = useRef(null)
 
   const [img, setImg] = useState(0)
   const [variantName, setVariantName] = useState(
     () => variants.find((v) => v.stock > 0)?.name || variants[0]?.name || ''
   )
   const [qty, setQty] = useState(1)
-  const [showForm, setShowForm] = useState(false)
 
   const variant = variants.find((v) => v.name === variantName)
-  const unitPrice = variant?.price || product.price
+  const base = variant?.price || product.price
+  const packs = variant?.price ? [] : product.packs || [] // pack offers apply to the normal price only
   const stock = variants.length ? variant?.stock ?? 0 : product.stock
   const out = stock <= 0
   const maxQty = Math.max(1, Math.min(20, stock))
   const safeQty = Math.min(qty, maxQty)
-  const off = product.compareAtPrice > unitPrice ? Math.round((1 - unitPrice / product.compareAtPrice) * 100) : 0
+
+  const total = bestTotal(safeQty, base, packs)
+  const unit = total / safeQty
+  const saved = Math.round((base * safeQty - total) * 100) / 100
+  const off = product.compareAtPrice > base ? Math.round((1 - base / product.compareAtPrice) * 100) : 0
+  const gifts = giftCount({ gift: product.gift, qty: safeQty })
 
   const lineItem = {
     productId: product._id,
     slug: product.slug,
     name: product.name,
     image: images[0]?.url,
-    price: unitPrice,
+    base,
+    packs: packs.map(({ qty: q, price }) => ({ qty: q, price })),
+    gift: product.gift || null,
+    price: unit,
     variantName: variant?.name,
   }
 
@@ -62,9 +74,13 @@ function ProductView({ product, related }) {
     add(lineItem, safeQty)
     track('AddToCart', {
       content_ids: [product._id], content_name: product.name.en,
-      content_type: 'product', value: unitPrice * safeQty, currency: 'QAR',
+      content_type: 'product', value: total, currency: 'QAR',
     })
     setOpen(true)
+  }
+
+  function goToForm() {
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   const waHref = settings.whatsappNumber
@@ -74,7 +90,7 @@ function ProductView({ product, related }) {
     : null
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-7xl px-4 pb-28 pt-8 md:pb-8">
       <div className="grid gap-8 md:grid-cols-2 lg:gap-12">
         {/* Gallery */}
         <div className="md:sticky md:top-24 md:self-start">
@@ -122,8 +138,14 @@ function ProductView({ product, related }) {
             </a>
           )}
 
+          {product.soldCount >= 10 && (
+            <div className="mt-2 text-sm font-semibold text-orange-600">
+              🔥 {t('soldCount').replace('{n}', product.soldCount)}
+            </div>
+          )}
+
           <div className="mt-3 flex items-baseline gap-3">
-            <span className="text-3xl font-extrabold">{money(unitPrice)}</span>
+            <span className="text-3xl font-extrabold">{money(base)}</span>
             {off > 0 && <s className="text-lg text-gray-400">{money(product.compareAtPrice)}</s>}
           </div>
 
@@ -147,10 +169,41 @@ function ProductView({ product, related }) {
             </div>
           )}
 
+          {!out && <PackOffers base={base} packs={packs} qty={safeQty} max={maxQty} onPick={setQty} />}
+
+          {product.gift && !out && (
+            <div className="mt-5 flex items-center gap-3 rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50 p-4">
+              {product.gift.image && (
+                <img src={optimizeImg(product.gift.image, 120)} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" />
+              )}
+              <div className="text-sm">
+                <div className="font-bold text-emerald-800">🎁 {t('freeGift')}</div>
+                <div className="text-emerald-900">
+                  {t('giftLine')
+                    .replace('{n}', product.gift.minQty)
+                    .replace('{gift}', `${product.gift.qty > 1 ? `${product.gift.qty} × ` : ''}${pick(product.gift.name)}`)}
+                </div>
+                {gifts > 0 && <div className="mt-1 text-xs font-semibold text-emerald-700">✓ {t('giftIncluded')}</div>}
+              </div>
+            </div>
+          )}
+
           {!out && (
             <div className="mt-5 flex items-center gap-4">
               <span className="text-sm font-medium">{t('quantity')}</span>
               <QtyStepper value={safeQty} onChange={setQty} max={maxQty} />
+            </div>
+          )}
+
+          {!out && (
+            <div className="mt-4 flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
+              <span className="text-sm text-gray-600">{t('total')}</span>
+              <span className="text-end">
+                <span className="text-xl font-extrabold">{money(total)}</span>
+                {saved > 0 && (
+                  <span className="block text-xs font-semibold text-green-600">{t('youSave').replace('{amt}', money(saved))}</span>
+                )}
+              </span>
             </div>
           )}
 
@@ -159,7 +212,7 @@ function ProductView({ product, related }) {
               className="flex items-center justify-center gap-2 rounded-full bg-gray-900 py-3.5 font-semibold text-white transition hover:bg-gray-700 disabled:opacity-50">
               <ShoppingBag size={20} /> {t('addToCart')}
             </button>
-            <button onClick={() => setShowForm(!showForm)} disabled={out}
+            <button onClick={goToForm} disabled={out}
               className="flex items-center justify-center gap-2 rounded-full bg-emerald-600 py-3.5 font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50">
               <Zap size={20} /> {t('orderNow')}
             </button>
@@ -177,17 +230,13 @@ function ProductView({ product, related }) {
             <div className="rounded-2xl bg-gray-50 p-3"><WhatsAppIcon size={20} className="mx-auto mb-1 text-emerald-600" />{t('supportTitle')}</div>
           </div>
 
-          <AnimatePresence>
-            {showForm && !out && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                <div className="mt-5 rounded-3xl border bg-white p-5 shadow-sm">
-                  <h3 className="mb-4 font-bold">{t('orderDetails')}</h3>
-                  <OrderForm lines={[{ ...lineItem, qty: safeQty }]} />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* the order form is always open: one less tap between "I want it" and "ordered" */}
+          {!out && (
+            <div ref={formRef} className="mt-5 scroll-mt-24 rounded-3xl border bg-white p-5 shadow-sm">
+              <h3 className="mb-4 font-bold">{t('orderDetails')}</h3>
+              <OrderForm lines={[{ ...lineItem, qty: safeQty }]} />
+            </div>
+          )}
 
           {pick(product.description) && (
             <div className="mt-8">
@@ -198,7 +247,7 @@ function ProductView({ product, related }) {
         </div>
       </div>
 
-            <ProductCompare rows={product.comparison} />
+      <ProductCompare rows={product.comparison} />
       <Reviews productId={product._id} />
       <ProductFaq faqs={product.faqs} />
 
@@ -207,6 +256,20 @@ function ProductView({ product, related }) {
           <h2 className="mb-6 text-2xl font-bold">{t('related')}</h2>
           <ProductGrid items={related} loading={false} />
         </section>
+      )}
+
+      {/* sticky order bar, phones only */}
+      {!out && (
+        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t bg-white/95 p-3 backdrop-blur md:hidden">
+          <div className="leading-tight">
+            <div className="text-xs text-gray-500">{t('total')}</div>
+            <div className="text-lg font-extrabold">{money(total)}</div>
+          </div>
+          <button onClick={goToForm}
+            className="flex-1 rounded-full bg-emerald-600 py-3 font-semibold text-white transition hover:bg-emerald-500">
+            {t('orderShort')}
+          </button>
+        </div>
       )}
     </div>
   )
