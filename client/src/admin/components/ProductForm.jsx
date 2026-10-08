@@ -6,10 +6,12 @@ import { uploadImage } from '../../lib/upload'
 import { optimizeImg } from '../../lib/image'
 import ProductExtras from './ProductExtras'
 import ProductOffers from './ProductOffers'
+import DescriptionImages from './DescriptionImages'
 
 const blank = {
   name: { en: '', ar: '' },
   description: { en: '', ar: '' },
+  descriptionImages: { en: [], ar: [] },
   category: '',
   price: '',
   compareAtPrice: '',
@@ -28,11 +30,17 @@ const blank = {
   freeGift: { enabled: false, product: '', minQty: 1, qty: 1 },
 }
 
+const cleanImages = (list) => (list || []).map(({ url, publicId }) => ({ url, publicId }))
+
 function toForm(p) {
   if (!p) return blank
   return {
     name: { en: p.name?.en || '', ar: p.name?.ar || '' },
     description: { en: p.description?.en || '', ar: p.description?.ar || '' },
+    descriptionImages: {
+      en: cleanImages(p.descriptionImages?.en),
+      ar: cleanImages(p.descriptionImages?.ar),
+    },
     category: p.category?._id || p.category || '',
     price: p.price ?? '',
     compareAtPrice: p.compareAtPrice ?? '',
@@ -130,6 +138,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
     const payload = {
       name: f.name,
       description: f.description,
+      descriptionImages: f.descriptionImages,
       category: f.category || null,
       price: Number(f.price),
       compareAtPrice: f.compareAtPrice === '' ? null : Number(f.compareAtPrice),
@@ -190,12 +199,6 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
             <Field label="Name (Arabic)">
               <input dir="rtl" className={inputCls} value={f.name.ar} onChange={(e) => setLang('name', 'ar', e.target.value)} />
             </Field>
-            <Field label="Description (English)">
-              <textarea rows={4} className={inputCls} value={f.description.en} onChange={(e) => setLang('description', 'en', e.target.value)} />
-            </Field>
-            <Field label="Description (Arabic)">
-              <textarea dir="rtl" rows={4} className={inputCls} value={f.description.ar} onChange={(e) => setLang('description', 'ar', e.target.value)} />
-            </Field>
           </section>
 
           <section className="grid gap-4 sm:grid-cols-3">
@@ -226,7 +229,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
 
           <section>
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="font-semibold">Photos</h3>
+              <h3 className="font-semibold">Photos <span className="text-xs font-normal text-gray-500">(gallery at the top of the page)</span></h3>
               <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-700">
                 {uploading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                 {uploading ? 'Uploading…' : 'Add photos'}
@@ -250,6 +253,32 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
                 </div>
               ))}
             </div>
+          </section>
+
+          <section className="space-y-3">
+            <div>
+              <h3 className="font-semibold">Description pictures</h3>
+              <p className="text-xs text-gray-500">
+                These pictures are the description on the product page, shown one under the other. Visitors see the set for their language,
+                or the other set if one is empty. Tip: about 1000 to 1200 px wide, under 8 MB each, one idea per picture.
+              </p>
+            </div>
+            <DescriptionImages title="English pictures" images={f.descriptionImages.en}
+              onChange={(list) => setLang('descriptionImages', 'en', list)} />
+            <DescriptionImages title="Arabic pictures (الصور بالعربية)" images={f.descriptionImages.ar}
+              onChange={(list) => setLang('descriptionImages', 'ar', list)} />
+
+            <details className="rounded-xl border p-3">
+              <summary className="cursor-pointer text-sm font-medium">Text description (used only when there are no pictures)</summary>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <Field label="Description (English)">
+                  <textarea rows={4} className={inputCls} value={f.description.en} onChange={(e) => setLang('description', 'en', e.target.value)} />
+                </Field>
+                <Field label="Description (Arabic)">
+                  <textarea dir="rtl" rows={4} className={inputCls} value={f.description.ar} onChange={(e) => setLang('description', 'ar', e.target.value)} />
+                </Field>
+              </div>
+            </details>
           </section>
 
           <section>

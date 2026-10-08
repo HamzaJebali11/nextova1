@@ -12,6 +12,11 @@ const productSchema = new mongoose.Schema({
   name: { en: { type: String, required: true }, ar: String },
   slug: { type: String, required: true, unique: true, lowercase: true },
   description: { en: String, ar: String },
+  // pictures that replace the text description on the product page (one set per language)
+  descriptionImages: {
+    en: [{ url: String, publicId: String }],
+    ar: [{ url: String, publicId: String }],
+  },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', index: true },
   images: [{ url: String, publicId: String }],
 

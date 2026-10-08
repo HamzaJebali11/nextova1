@@ -19,11 +19,17 @@ import { Stars } from '../components/Stars'
 import { WhatsAppIcon } from '../components/icons'
 
 function ProductView({ product, related }) {
-  const { t, pick, money, settings } = useStore()
+  const { t, lang, pick, money, settings } = useStore()
   const { add, setOpen } = useCart()
   const variants = product.variants || []
   const images = product.images || []
   const formRef = useRef(null)
+
+  // description pictures: the set for the visitor's language, or the other set if that one is empty
+  const sets = product.descriptionImages || {}
+  const ownSet = sets[lang] || []
+  const otherSet = sets[lang === 'ar' ? 'en' : 'ar'] || []
+  const descImages = ownSet.length ? ownSet : otherSet
 
   const [img, setImg] = useState(0)
   const [variantName, setVariantName] = useState(
@@ -238,7 +244,8 @@ function ProductView({ product, related }) {
             </div>
           )}
 
-          {pick(product.description) && (
+          {/* text description only when there are no description pictures */}
+          {descImages.length === 0 && pick(product.description) && (
             <div className="mt-8">
               <h3 className="mb-2 font-semibold">{t('description')}</h3>
               <p className="whitespace-pre-line text-gray-600">{pick(product.description)}</p>
@@ -246,6 +253,19 @@ function ProductView({ product, related }) {
           )}
         </div>
       </div>
+
+      {/* description pictures, stacked like a landing page */}
+      {descImages.length > 0 && (
+        <section className="mx-auto mt-16 max-w-3xl">
+          <h2 className="mb-6 text-center text-2xl font-bold">{t('description')}</h2>
+          <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
+            {descImages.map((im, i) => (
+              <img key={im.url} src={optimizeImg(im.url, 1000)} alt={`${pick(product.name)} ${i + 1}`}
+                loading="lazy" decoding="async" className="block w-full" />
+            ))}
+          </div>
+        </section>
+      )}
 
       <ProductCompare rows={product.comparison} />
       <Reviews productId={product._id} />

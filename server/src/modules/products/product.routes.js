@@ -48,7 +48,8 @@ router.get('/', asyncHandler(async (req, res) => {
   const l = Math.min(48, Math.max(1, Number(limit) || 12))
 
   const [items, total] = await Promise.all([
-    Product.find(filter).select('-faqs -comparison').sort(SORTS[sort] || SORTS.newest).skip((p - 1) * l).limit(l)
+    Product.find(filter).select('-faqs -comparison -descriptionImages')
+      .sort(SORTS[sort] || SORTS.newest).skip((p - 1) * l).limit(l)
       .populate('category', 'name slug').lean(),
     Product.countDocuments(filter),
   ])
@@ -99,7 +100,7 @@ router.get('/:slug', asyncHandler(async (req, res) => {
 
   const related = await Product.find({
     isActive: true, _id: { $ne: product._id }, category: product.category?._id,
-  }).select('-faqs -comparison').limit(4).lean()
+  }).select('-faqs -comparison -descriptionImages').limit(4).lean()
   res.json({ product, related })
 }))
 
