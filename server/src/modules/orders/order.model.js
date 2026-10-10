@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import Counter from './counter.model.js'
+import { sendOrderWhatsApp } from '../../utils/whatsapp.js'
 
 export const ORDER_STATUSES = [
   'new', 'confirmed', 'processing', 'out_for_delivery',
@@ -60,7 +61,7 @@ orderSchema.pre('save', async function () {
   }
 })
 
-// a new order turns the customer's unfinished-order lead into "ordered"
+// after a NEW order is saved: close the customer's unfinished-order lead and send the automatic WhatsApp message
 orderSchema.post('save', async function (doc) {
   if (!doc.$locals?.wasNew) return
   try {
@@ -68,6 +69,7 @@ orderSchema.post('save', async function (doc) {
   } catch {
     // leads are optional: never block an order because of them
   }
+  sendOrderWhatsApp(doc).catch((e) => console.error('WhatsApp error:', e.message))
 })
 
 export default mongoose.model('Order', orderSchema)

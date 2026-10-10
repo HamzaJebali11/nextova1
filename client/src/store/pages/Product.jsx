@@ -15,6 +15,7 @@ import Reviews from '../components/Reviews'
 import PackOffers from '../components/PackOffers'
 import ProductCompare from '../components/ProductCompare'
 import ProductFaq from '../components/ProductFaq'
+import ProductVideo from '../components/ProductVideo'
 import { Stars } from '../components/Stars'
 import { WhatsAppIcon } from '../components/icons'
 
@@ -96,187 +97,195 @@ function ProductView({ product, related }) {
     : null
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-28 pt-8 md:pb-8">
-      <div className="grid gap-8 md:grid-cols-2 lg:gap-12">
-        {/* Gallery */}
-        <div className="md:sticky md:top-24 md:self-start">
-          <div className="relative aspect-square overflow-hidden rounded-3xl bg-gray-100">
-            {images.length > 0 && (
-              <AnimatePresence mode="wait">
-                <motion.img key={img} src={optimizeImg(images[img]?.url, 900)} alt={pick(product.name)}
-                  initial={{ opacity: 0, scale: 1.03 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-                  transition={{ duration: 0.25 }} className="h-full w-full object-cover" />
-              </AnimatePresence>
-            )}
-            {off > 0 && (
-              <span className="absolute start-3 top-3 rounded-full bg-red-500 px-3 py-1 text-sm font-bold text-white">
-                {off}% {t('off')}
-              </span>
-            )}
-          </div>
-          {images.length > 1 && (
-            <div className="mt-3 flex gap-2 overflow-x-auto">
-              {images.map((im, i) => (
-                <button key={im.url} onClick={() => setImg(i)}
-                  className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition ${
-                    i === img ? 'border-emerald-500' : 'border-transparent opacity-70 hover:opacity-100'
-                  }`}>
-                  <img src={optimizeImg(im.url, 120)} alt="" className="h-full w-full object-cover" />
-                </button>
-              ))}
+    <div>
+      {/* main section: gallery + buying */}
+      <div className="mx-auto max-w-7xl px-4 pt-8">
+        <div className="grid gap-8 md:grid-cols-2 lg:gap-12">
+          {/* Gallery */}
+          <div className="md:sticky md:top-24 md:self-start">
+            <div className="relative aspect-square overflow-hidden rounded-3xl bg-gray-100">
+              {images.length > 0 && (
+                <AnimatePresence mode="wait">
+                  <motion.img key={img} src={optimizeImg(images[img]?.url, 900)} alt={pick(product.name)}
+                    initial={{ opacity: 0, scale: 1.03 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }} className="h-full w-full object-cover" />
+                </AnimatePresence>
+              )}
+              {off > 0 && (
+                <span className="absolute start-3 top-3 rounded-full bg-red-500 px-3 py-1 text-sm font-bold text-white">
+                  {off}% {t('off')}
+                </span>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Info */}
-        <div>
-          {product.category && (
-            <Link to={`/shop?category=${product.category.slug}`} className="text-sm text-emerald-600 hover:underline">
-              {pick(product.category.name)}
-            </Link>
-          )}
-          <h1 className="mt-1 text-2xl font-bold md:text-3xl">{pick(product.name)}</h1>
-
-          {product.ratingCount > 0 && (
-            <a href="#reviews" className="mt-2 flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600">
-              <Stars value={product.ratingAvg} size={18} />
-              <span>{product.ratingAvg} · {product.ratingCount} {t('reviewsCount')}</span>
-            </a>
-          )}
-
-          {product.soldCount >= 10 && (
-            <div className="mt-2 text-sm font-semibold text-orange-600">
-              🔥 {t('soldCount').replace('{n}', product.soldCount)}
-            </div>
-          )}
-
-          <div className="mt-3 flex items-baseline gap-3">
-            <span className="text-3xl font-extrabold">{money(base)}</span>
-            {off > 0 && <s className="text-lg text-gray-400">{money(product.compareAtPrice)}</s>}
-          </div>
-
-          <p className={`mt-2 text-sm font-medium ${out ? 'text-red-600' : 'text-emerald-600'}`}>
-            {out ? t('outOfStock') : stock <= 5 ? t('lowStockNote') : t('inStockLabel')}
-          </p>
-
-          {variants.length > 0 && (
-            <div className="mt-5">
-              <div className="mb-2 text-sm font-medium">{t('option')}</div>
-              <div className="flex flex-wrap gap-2">
-                {variants.map((v) => (
-                  <button key={v.name} onClick={() => { setVariantName(v.name); setQty(1) }} disabled={v.stock <= 0}
-                    className={`rounded-full border px-4 py-2 text-sm transition ${
-                      v.name === variantName ? 'border-gray-900 bg-gray-900 text-white' : 'hover:border-gray-900'
-                    } disabled:cursor-not-allowed disabled:opacity-40 disabled:line-through`}>
-                    {v.name}
+            {images.length > 1 && (
+              <div className="mt-3 flex gap-2 overflow-x-auto">
+                {images.map((im, i) => (
+                  <button key={im.url} onClick={() => setImg(i)}
+                    className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition ${
+                      i === img ? 'border-emerald-500' : 'border-transparent opacity-70 hover:opacity-100'
+                    }`}>
+                    <img src={optimizeImg(im.url, 120)} alt="" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-
-          {!out && <PackOffers base={base} packs={packs} qty={safeQty} max={maxQty} onPick={setQty} />}
-
-          {product.gift && !out && (
-            <div className="mt-5 flex items-center gap-3 rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50 p-4">
-              {product.gift.image && (
-                <img src={optimizeImg(product.gift.image, 120)} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" />
-              )}
-              <div className="text-sm">
-                <div className="font-bold text-emerald-800">🎁 {t('freeGift')}</div>
-                <div className="text-emerald-900">
-                  {t('giftLine')
-                    .replace('{n}', product.gift.minQty)
-                    .replace('{gift}', `${product.gift.qty > 1 ? `${product.gift.qty} × ` : ''}${pick(product.gift.name)}`)}
-                </div>
-                {gifts > 0 && <div className="mt-1 text-xs font-semibold text-emerald-700">✓ {t('giftIncluded')}</div>}
-              </div>
-            </div>
-          )}
-
-          {!out && (
-            <div className="mt-5 flex items-center gap-4">
-              <span className="text-sm font-medium">{t('quantity')}</span>
-              <QtyStepper value={safeQty} onChange={setQty} max={maxQty} />
-            </div>
-          )}
-
-          {!out && (
-            <div className="mt-4 flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
-              <span className="text-sm text-gray-600">{t('total')}</span>
-              <span className="text-end">
-                <span className="text-xl font-extrabold">{money(total)}</span>
-                {saved > 0 && (
-                  <span className="block text-xs font-semibold text-green-600">{t('youSave').replace('{amt}', money(saved))}</span>
-                )}
-              </span>
-            </div>
-          )}
-
-          <div className="mt-6 grid gap-3">
-            <button onClick={addToCart} disabled={out}
-              className="flex items-center justify-center gap-2 rounded-full bg-gray-900 py-3.5 font-semibold text-white transition hover:bg-gray-700 disabled:opacity-50">
-              <ShoppingBag size={20} /> {t('addToCart')}
-            </button>
-            <button onClick={goToForm} disabled={out}
-              className="flex items-center justify-center gap-2 rounded-full bg-emerald-600 py-3.5 font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50">
-              <Zap size={20} /> {t('orderNow')}
-            </button>
-            {waHref && (
-              <a href={waHref} target="_blank" rel="noreferrer"
-                className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] py-3.5 font-semibold text-white transition hover:brightness-110">
-                <WhatsAppIcon size={22} /> {t('askWhatsapp')}
-              </a>
             )}
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs text-gray-600">
-            <div className="rounded-2xl bg-gray-50 p-3"><Banknote size={20} className="mx-auto mb-1 text-emerald-600" />{t('codTitle')}</div>
-            <div className="rounded-2xl bg-gray-50 p-3"><Truck size={20} className="mx-auto mb-1 text-emerald-600" />{t('fastTitle')}</div>
-            <div className="rounded-2xl bg-gray-50 p-3"><WhatsAppIcon size={20} className="mx-auto mb-1 text-emerald-600" />{t('supportTitle')}</div>
+          {/* Info */}
+          <div>
+            {product.category && (
+              <Link to={`/shop?category=${product.category.slug}`} className="text-sm text-emerald-600 hover:underline">
+                {pick(product.category.name)}
+              </Link>
+            )}
+            <h1 className="mt-1 text-2xl font-bold md:text-3xl">{pick(product.name)}</h1>
+
+            {product.ratingCount > 0 && (
+              <a href="#reviews" className="mt-2 flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600">
+                <Stars value={product.ratingAvg} size={18} />
+                <span>{product.ratingAvg} · {product.ratingCount} {t('reviewsCount')}</span>
+              </a>
+            )}
+
+            {product.soldCount >= 10 && (
+              <div className="mt-2 text-sm font-semibold text-orange-600">
+                🔥 {t('soldCount').replace('{n}', product.soldCount)}
+              </div>
+            )}
+
+            <div className="mt-3 flex items-baseline gap-3">
+              <span className="text-3xl font-extrabold">{money(base)}</span>
+              {off > 0 && <s className="text-lg text-gray-400">{money(product.compareAtPrice)}</s>}
+            </div>
+
+            <p className={`mt-2 text-sm font-medium ${out ? 'text-red-600' : 'text-emerald-600'}`}>
+              {out ? t('outOfStock') : stock <= 5 ? t('lowStockNote') : t('inStockLabel')}
+            </p>
+
+            {variants.length > 0 && (
+              <div className="mt-5">
+                <div className="mb-2 text-sm font-medium">{t('option')}</div>
+                <div className="flex flex-wrap gap-2">
+                  {variants.map((v) => (
+                    <button key={v.name} onClick={() => { setVariantName(v.name); setQty(1) }} disabled={v.stock <= 0}
+                      className={`rounded-full border px-4 py-2 text-sm transition ${
+                        v.name === variantName ? 'border-gray-900 bg-gray-900 text-white' : 'hover:border-gray-900'
+                      } disabled:cursor-not-allowed disabled:opacity-40 disabled:line-through`}>
+                      {v.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!out && <PackOffers base={base} packs={packs} qty={safeQty} max={maxQty} onPick={setQty} />}
+
+            {product.gift && !out && (
+              <div className="mt-5 flex items-center gap-3 rounded-2xl border-2 border-dashed border-emerald-400 bg-emerald-50 p-4">
+                {product.gift.image && (
+                  <img src={optimizeImg(product.gift.image, 120)} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover" />
+                )}
+                <div className="text-sm">
+                  <div className="font-bold text-emerald-800">🎁 {t('freeGift')}</div>
+                  <div className="text-emerald-900">
+                    {t('giftLine')
+                      .replace('{n}', product.gift.minQty)
+                      .replace('{gift}', `${product.gift.qty > 1 ? `${product.gift.qty} × ` : ''}${pick(product.gift.name)}`)}
+                  </div>
+                  {gifts > 0 && <div className="mt-1 text-xs font-semibold text-emerald-700">✓ {t('giftIncluded')}</div>}
+                </div>
+              </div>
+            )}
+
+            {!out && (
+              <div className="mt-5 flex items-center gap-4">
+                <span className="text-sm font-medium">{t('quantity')}</span>
+                <QtyStepper value={safeQty} onChange={setQty} max={maxQty} />
+              </div>
+            )}
+
+            {!out && (
+              <div className="mt-4 flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3">
+                <span className="text-sm text-gray-600">{t('total')}</span>
+                <span className="text-end">
+                  <span className="text-xl font-extrabold">{money(total)}</span>
+                  {saved > 0 && (
+                    <span className="block text-xs font-semibold text-green-600">{t('youSave').replace('{amt}', money(saved))}</span>
+                  )}
+                </span>
+              </div>
+            )}
+
+            <div className="mt-6 grid gap-3">
+              <button onClick={addToCart} disabled={out}
+                className="flex items-center justify-center gap-2 rounded-full bg-gray-900 py-3.5 font-semibold text-white transition hover:bg-gray-700 disabled:opacity-50">
+                <ShoppingBag size={20} /> {t('addToCart')}
+              </button>
+              <button onClick={goToForm} disabled={out}
+                className="flex items-center justify-center gap-2 rounded-full bg-emerald-600 py-3.5 font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50">
+                <Zap size={20} /> {t('orderNow')}
+              </button>
+              {waHref && (
+                <a href={waHref} target="_blank" rel="noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-full bg-[#25D366] py-3.5 font-semibold text-white transition hover:brightness-110">
+                  <WhatsAppIcon size={22} /> {t('askWhatsapp')}
+                </a>
+              )}
+            </div>
+
+            <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs text-gray-600">
+              <div className="rounded-2xl bg-gray-50 p-3"><Banknote size={20} className="mx-auto mb-1 text-emerald-600" />{t('codTitle')}</div>
+              <div className="rounded-2xl bg-gray-50 p-3"><Truck size={20} className="mx-auto mb-1 text-emerald-600" />{t('fastTitle')}</div>
+              <div className="rounded-2xl bg-gray-50 p-3"><WhatsAppIcon size={20} className="mx-auto mb-1 text-emerald-600" />{t('supportTitle')}</div>
+            </div>
+
+            {/* the order form is always open: one less tap between "I want it" and "ordered" */}
+            {!out && (
+              <div ref={formRef} className="mt-5 scroll-mt-24 rounded-3xl border bg-white p-5 shadow-sm">
+                <h3 className="mb-4 font-bold">{t('orderDetails')}</h3>
+                <OrderForm lines={[{ ...lineItem, qty: safeQty }]} />
+              </div>
+            )}
+
+            {/* text description only when there are no description pictures */}
+            {descImages.length === 0 && pick(product.description) && (
+              <div className="mt-8">
+                <h3 className="mb-2 font-semibold">{t('description')}</h3>
+                <p className="whitespace-pre-line text-gray-600">{pick(product.description)}</p>
+              </div>
+            )}
           </div>
-
-          {/* the order form is always open: one less tap between "I want it" and "ordered" */}
-          {!out && (
-            <div ref={formRef} className="mt-5 scroll-mt-24 rounded-3xl border bg-white p-5 shadow-sm">
-              <h3 className="mb-4 font-bold">{t('orderDetails')}</h3>
-              <OrderForm lines={[{ ...lineItem, qty: safeQty }]} />
-            </div>
-          )}
-
-          {/* text description only when there are no description pictures */}
-          {descImages.length === 0 && pick(product.description) && (
-            <div className="mt-8">
-              <h3 className="mb-2 font-semibold">{t('description')}</h3>
-              <p className="whitespace-pre-line text-gray-600">{pick(product.description)}</p>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* description pictures, stacked like a landing page */}
+      {/* optional vertical video (only products that have one) */}
+      <ProductVideo video={product.video} />
+
+      {/* description pictures: the full width of the page, one under the other */}
       {descImages.length > 0 && (
-        <section className="mx-auto mt-16 max-w-3xl">
-          <h2 className="mb-6 text-center text-2xl font-bold">{t('description')}</h2>
-          <div className="overflow-hidden rounded-3xl border bg-white shadow-sm">
+        <section className="mt-16">
+          <h2 className="mb-6 px-4 text-center text-2xl font-bold">{t('description')}</h2>
+          <div>
             {descImages.map((im, i) => (
-              <img key={im.url} src={optimizeImg(im.url, 1000)} alt={`${pick(product.name)} ${i + 1}`}
+              <img key={im.url} src={optimizeImg(im.url, 1920)} alt={`${pick(product.name)} ${i + 1}`}
                 loading="lazy" decoding="async" className="block w-full" />
             ))}
           </div>
         </section>
       )}
 
-      <ProductCompare rows={product.comparison} />
-      <Reviews productId={product._id} />
-      <ProductFaq faqs={product.faqs} />
+      <div className="mx-auto max-w-7xl px-4 pb-28 md:pb-8">
+        <ProductCompare rows={product.comparison} />
+        <Reviews productId={product._id} />
+        <ProductFaq faqs={product.faqs} />
 
-      {related.length > 0 && (
-        <section className="mt-16">
-          <h2 className="mb-6 text-2xl font-bold">{t('related')}</h2>
-          <ProductGrid items={related} loading={false} />
-        </section>
-      )}
+        {related.length > 0 && (
+          <section className="mt-16">
+            <h2 className="mb-6 text-2xl font-bold">{t('related')}</h2>
+            <ProductGrid items={related} loading={false} />
+          </section>
+        )}
+      </div>
 
       {/* sticky order bar, phones only */}
       {!out && (

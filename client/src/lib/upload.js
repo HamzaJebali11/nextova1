@@ -1,6 +1,7 @@
 import { api } from './api'
 
-export async function uploadImage(file, { review = false } = {}) {
+// resource: 'image' (default) or 'video'
+export async function uploadImage(file, { review = false, resource = 'image' } = {}) {
   const sig = await api(review ? '/uploads/review-sign' : '/uploads/sign', { method: 'POST' })
   const form = new FormData()
   form.append('file', file)
@@ -10,7 +11,7 @@ export async function uploadImage(file, { review = false } = {}) {
   form.append('folder', sig.folder)
   if (sig.allowedFormats) form.append('allowed_formats', sig.allowedFormats)
 
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${sig.cloudName}/image/upload`, {
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${sig.cloudName}/${resource}/upload`, {
     method: 'POST',
     body: form,
   })
@@ -18,3 +19,5 @@ export async function uploadImage(file, { review = false } = {}) {
   if (!res.ok) throw new Error(data.error?.message || 'Upload failed')
   return { url: data.secure_url, publicId: data.public_id }
 }
+
+export const uploadVideo = (file) => uploadImage(file, { resource: 'video' })

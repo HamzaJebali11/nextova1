@@ -7,11 +7,13 @@ import { optimizeImg } from '../../lib/image'
 import ProductExtras from './ProductExtras'
 import ProductOffers from './ProductOffers'
 import DescriptionImages from './DescriptionImages'
+import ProductVideoField from './ProductVideo'
 
 const blank = {
   name: { en: '', ar: '' },
   description: { en: '', ar: '' },
   descriptionImages: { en: [], ar: [] },
+  video: { url: '', publicId: '' },
   category: '',
   price: '',
   compareAtPrice: '',
@@ -41,6 +43,7 @@ function toForm(p) {
       en: cleanImages(p.descriptionImages?.en),
       ar: cleanImages(p.descriptionImages?.ar),
     },
+    video: { url: p.video?.url || '', publicId: p.video?.publicId || '' },
     category: p.category?._id || p.category || '',
     price: p.price ?? '',
     compareAtPrice: p.compareAtPrice ?? '',
@@ -139,6 +142,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
       name: f.name,
       description: f.description,
       descriptionImages: f.descriptionImages,
+      video: f.video.url ? f.video : { url: '', publicId: '' },
       category: f.category || null,
       price: Number(f.price),
       compareAtPrice: f.compareAtPrice === '' ? null : Number(f.compareAtPrice),
@@ -255,12 +259,15 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
             </div>
           </section>
 
+          <ProductVideoField video={f.video} onChange={(v) => set('video', v)} />
+
           <section className="space-y-3">
             <div>
               <h3 className="font-semibold">Description pictures</h3>
               <p className="text-xs text-gray-500">
-                These pictures are the description on the product page, shown one under the other. Visitors see the set for their language,
-                or the other set if one is empty. Tip: about 1000 to 1200 px wide, under 8 MB each, one idea per picture.
+                These pictures are the description on the product page, shown one under the other across the full width of the page.
+                Visitors see the set for their language, or the other set if one is empty.
+                Tip: 1600 to 2000 px wide, under 8 MB each, one idea per picture.
               </p>
             </div>
             <DescriptionImages title="English pictures" images={f.descriptionImages.en}

@@ -17,6 +17,8 @@ const productSchema = new mongoose.Schema({
     en: [{ url: String, publicId: String }],
     ar: [{ url: String, publicId: String }],
   },
+  // optional vertical (TikTok-format) video: how to use it / see it in action
+  video: { url: String, publicId: String },
   category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', index: true },
   images: [{ url: String, publicId: String }],
 
