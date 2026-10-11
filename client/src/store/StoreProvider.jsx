@@ -12,11 +12,20 @@ const merged = {
 export function StoreProvider({ children }) {
   const [settings, setSettings] = useState({})
   const [categories, setCategories] = useState([])
-  const [lang, setLang] = useState(() => localStorage.getItem('nx_lang') || 'en')
+  // a link ending in ?lang=ar opens the store in Arabic (and remembers it)
+  const [lang, setLang] = useState(() => {
+    const q = new URLSearchParams(window.location.search).get('lang')
+    if (q === 'ar' || q === 'en') return q
+    return localStorage.getItem('nx_lang') || 'en'
+  })
 
   useEffect(() => {
-    api('/settings').then(setSettings).catch(() => {})
-    api('/categories').then(setCategories).catch(() => {})
+    api('/settings')
+      .then((d) => setSettings(d && typeof d === 'object' ? d : {}))
+      .catch(() => {})
+    api('/categories')
+      .then((d) => setCategories(Array.isArray(d) ? d : []))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
