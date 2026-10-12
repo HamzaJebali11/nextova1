@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-      "create-admin": "node src/scripts/createAdmin.js"
+      "create-admin": "node src/scripts/createAdmin.js",
+        "reset-password": "node src/scripts/resetPassword.js"
+
 
   },
   "keywords": [],
