@@ -15,10 +15,17 @@ export async function sendOrderEmail(order, settings = {}) {
   const site = (process.env.CLIENT_URL || '').split(',')[0].trim()
   const phoneDigits = String(c.phone).replace(/\D/g, '')
   const ad = [order.utm?.source, order.utm?.medium, order.utm?.campaign].filter(Boolean).join(' / ')
+  const address = [
+    c.area,
+    c.zone && `Zone ${c.zone}`,
+    c.street && `Street ${c.street}`,
+    c.building && `Building ${c.building}`,
+    c.address,
+  ].filter(Boolean).join(' · ')
 
   const rows = order.items.map((i) => `
     <tr>
-      <td style="padding:8px;border-bottom:1px solid #eee">${esc(i.name)}${i.variantName ? ` <span style="color:#777">(${esc(i.variantName)})</span>` : ''}</td>
+      <td style="padding:8px;border-bottom:1px solid #eee">${esc(i.name)}${i.variantName ? ` <b>(${esc(i.variantName)})</b>` : ''}</td>
       <td style="padding:8px;border-bottom:1px solid #eee;text-align:center">${i.qty}</td>
       <td style="padding:8px;border-bottom:1px solid #eee;text-align:right">${i.price === 0 ? 'FREE' : `${cur} ${r2(i.price * i.qty)}`}</td>
     </tr>`).join('')
@@ -32,13 +39,14 @@ export async function sendOrderEmail(order, settings = {}) {
       <b>${esc(c.name)}</b><br/>
       <a href="tel:${esc(c.phone)}">${esc(c.phone)}</a> ·
       <a href="https://wa.me/${phoneDigits}">WhatsApp</a><br/>
-      ${esc([c.area, c.address].filter(Boolean).join(' · '))}
+      ${esc(address)}
       ${c.notes ? `<br/><i>Note: ${esc(c.notes)}</i>` : ''}
     </div>
 
     <table style="width:100%;border-collapse:collapse;font-size:14px">
       <tr style="text-align:left;color:#777"><th style="padding:8px">Item</th><th style="padding:8px;text-align:center">Qty</th><th style="padding:8px;text-align:right">Price</th></tr>
       ${rows}
+      ${order.discount ? `<tr><td colspan="2" style="padding:8px;text-align:right">Discount</td><td style="padding:8px;text-align:right">− ${cur} ${order.discount}</td></tr>` : ''}
       <tr><td colspan="2" style="padding:8px;text-align:right">Delivery</td><td style="padding:8px;text-align:right">${order.deliveryFee ? `${cur} ${order.deliveryFee}` : 'Free'}</td></tr>
       <tr><td colspan="2" style="padding:8px;text-align:right"><b>Total</b></td><td style="padding:8px;text-align:right"><b>${cur} ${order.total}</b></td></tr>
     </table>

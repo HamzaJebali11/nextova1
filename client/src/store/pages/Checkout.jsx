@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import { optimizeImg } from '../../lib/image'
-import { giftCount } from '../../lib/pricing'
 import { track } from '../../lib/pixel'
 import { useStore } from '../storeContext'
 import { useCart } from '../../cart/cartContext'
@@ -44,7 +43,7 @@ export default function Checkout() {
                 <img src={optimizeImg(i.image, 120)} alt="" className="h-16 w-16 shrink-0 rounded-xl bg-white object-cover" />
                 <div className="min-w-0 flex-1">
                   <div className="line-clamp-2 text-sm font-medium">{pick(i.name)}</div>
-                  {i.variantName && <div className="text-xs text-gray-500">{i.variantName}</div>}
+                  {i.variantName && <div className="text-sm font-semibold text-emerald-700">{i.variantName}</div>}
                   <div className="mt-1 text-sm font-semibold">{money(i.price * i.qty)}</div>
                   <div className="mt-2 flex items-center justify-between">
                     <QtyStepper value={i.qty} onChange={(q) => setQty(i.key, q)} />
@@ -52,12 +51,12 @@ export default function Checkout() {
                       <Trash2 size={16} />
                     </button>
                   </div>
-                  {giftCount(i) > 0 && (
+                  {i.giftQty > 0 && (
                     <div className="mt-2 flex items-center gap-2 rounded-xl bg-emerald-50 p-2 text-xs text-emerald-800">
                       {i.gift.image && (
                         <img src={optimizeImg(i.gift.image, 80)} alt="" className="h-8 w-8 rounded-lg object-cover" />
                       )}
-                      <span>🎁 {pick(i.gift.name)} × {giftCount(i)} · <b>{t('freeCaps')}</b></span>
+                      <span>🎁 {pick(i.gift.name)} × {i.giftQty} · <b>{t('freeCaps')}</b></span>
                     </div>
                   )}
                 </div>

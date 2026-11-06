@@ -52,7 +52,9 @@ function toForm(p) {
     lowStockAlert: p.lowStockAlert ?? 5,
     sku: p.sku || '',
     images: p.images || [],
-    variants: (p.variants || []).map((v) => ({ name: v.name, price: v.price ?? '', stock: v.stock ?? 0 })),
+    variants: (p.variants || []).map((v) => ({
+      name: v.name, price: v.price ?? '', stock: v.stock ?? 0, image: v.image || '',
+    })),
     tags: (p.tags || []).join(', '),
     isActive: p.isActive ?? true,
     isFeatured: p.isFeatured ?? false,
@@ -136,6 +138,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
         name: v.name.trim(),
         price: v.price === '' ? undefined : Number(v.price),
         stock: Number(v.stock) || 0,
+        image: v.image || undefined,
       }))
 
     const payload = {
@@ -290,20 +293,42 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
 
           <section>
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="font-semibold">Variants <span className="text-xs font-normal text-gray-500">(sizes, colors… optional)</span></h3>
-              <button type="button" onClick={() => set('variants', [...f.variants, { name: '', price: '', stock: 0 }])}
+              <h3 className="font-semibold">Variants <span className="text-xs font-normal text-gray-500">(colors, sizes… optional)</span></h3>
+              <button type="button" onClick={() => set('variants', [...f.variants, { name: '', price: '', stock: 0, image: '' }])}
                 className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-gray-100"><Plus size={16} /> Add variant</button>
             </div>
+
             {f.variants.map((v, i) => (
-              <div key={i} className="mb-2 grid grid-cols-[1fr_6rem_6rem_auto] items-center gap-2">
-                <input placeholder="Name (e.g. Red)" className={inputCls} value={v.name} onChange={(e) => setVariant(i, 'name', e.target.value)} />
-                <input placeholder="Price" type="number" min="0" className={inputCls} value={v.price} onChange={(e) => setVariant(i, 'price', e.target.value)} />
-                <input placeholder="Stock" type="number" min="0" className={inputCls} value={v.stock} onChange={(e) => setVariant(i, 'stock', e.target.value)} />
-                <button type="button" onClick={() => set('variants', f.variants.filter((_, j) => j !== i))}
-                  className="rounded-lg p-2 text-red-600 hover:bg-red-50"><Trash2 size={16} /></button>
+              <div key={i} className="mb-3 rounded-xl border p-3">
+                <div className="grid grid-cols-[1fr_6rem_6rem_auto] items-center gap-2">
+                  <input placeholder="Name (e.g. Red)" className={inputCls} value={v.name} onChange={(e) => setVariant(i, 'name', e.target.value)} />
+                  <input placeholder="Price" type="number" min="0" className={inputCls} value={v.price} onChange={(e) => setVariant(i, 'price', e.target.value)} />
+                  <input placeholder="Stock" type="number" min="0" className={inputCls} value={v.stock} onChange={(e) => setVariant(i, 'stock', e.target.value)} />
+                  <button type="button" onClick={() => set('variants', f.variants.filter((_, j) => j !== i))}
+                    className="rounded-lg p-2 text-red-600 hover:bg-red-50"><Trash2 size={16} /></button>
+                </div>
+
+                <div className="mt-2">
+                  <div className="mb-1 text-xs text-gray-500">
+                    Picture for this option: customers see it when they choose it. Click a photo to choose it (click again to remove).
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {f.images.map((img) => (
+                      <button type="button" key={img.url}
+                        onClick={() => setVariant(i, 'image', v.image === img.url ? '' : img.url)}
+                        className={`h-12 w-12 overflow-hidden rounded-lg border-2 transition ${
+                          v.image === img.url ? 'border-emerald-500' : 'border-transparent opacity-70 hover:opacity-100'
+                        }`}>
+                        <img src={optimizeImg(img.url, 100)} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                    {f.images.length === 0 && <span className="text-xs text-gray-400">Add the product photos above first.</span>}
+                  </div>
+                </div>
               </div>
             ))}
-            {hasVariants && <p className="text-xs text-gray-500">Variant price is optional. Leave it empty to use the main price.</p>}
+
+            {hasVariants && <p className="text-xs text-gray-500">Variant price is optional. Leave it empty to use the main price (and the pack offers).</p>}
           </section>
 
           <section className="grid gap-4 sm:grid-cols-2">

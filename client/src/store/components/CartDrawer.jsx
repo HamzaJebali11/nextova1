@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ShoppingBag, Trash2, X } from 'lucide-react'
 import { optimizeImg } from '../../lib/image'
-import { giftCount } from '../../lib/pricing'
 import { useStore } from '../storeContext'
 import { useCart } from '../../cart/cartContext'
 import QtyStepper from './QtyStepper'
@@ -64,19 +63,19 @@ export default function CartDrawer() {
                       <img src={optimizeImg(i.image, 160)} alt="" className="h-20 w-20 shrink-0 rounded-xl bg-gray-100 object-cover" />
                       <div className="min-w-0 flex-1">
                         <div className="line-clamp-2 text-sm font-medium">{pick(i.name)}</div>
-                        {i.variantName && <div className="text-xs text-gray-500">{i.variantName}</div>}
+                        {i.variantName && <div className="text-sm font-semibold text-emerald-700">{i.variantName}</div>}
                         <div className="mt-1 text-sm font-semibold">{money(i.price * i.qty)}</div>
                         <div className="mt-2 flex items-center justify-between">
                           <QtyStepper value={i.qty} onChange={(q) => setQty(i.key, q)} />
                           <button onClick={() => remove(i.key)} aria-label={t('remove')}
                             className="rounded-full p-2 text-red-500 hover:bg-red-50"><Trash2 size={18} /></button>
                         </div>
-                        {giftCount(i) > 0 && (
+                        {i.giftQty > 0 && (
                           <div className="mt-2 flex items-center gap-2 rounded-xl bg-emerald-50 p-2 text-xs text-emerald-800">
                             {i.gift.image && (
                               <img src={optimizeImg(i.gift.image, 80)} alt="" className="h-8 w-8 rounded-lg object-cover" />
                             )}
-                            <span>🎁 {pick(i.gift.name)} × {giftCount(i)} · <b>{t('freeCaps')}</b></span>
+                            <span>🎁 {pick(i.gift.name)} × {i.giftQty} · <b>{t('freeCaps')}</b></span>
                           </div>
                         )}
                       </div>

@@ -21,7 +21,7 @@ export default function Settings() {
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
 
-  useEffect(() => {  api('/settings/admin').then(setS)}, [])
+  useEffect(() => { api('/settings/admin').then(setS) }, [])
 
   if (!s) return <div className="text-gray-500">Loading…</div>
 
@@ -53,12 +53,14 @@ export default function Settings() {
         method: 'PUT',
         body: {
           storeName: s.storeName,
+          legalName: s.legalName || '',
+          crNumber: s.crNumber || '',
           logoUrl: s.logoUrl || '',
           currency: s.currency,
           whatsappNumber: s.whatsappNumber || '',
           deliveryFee: Number(s.deliveryFee) || 0,
-                    shippingCostPerOrder: Number(s.shippingCostPerOrder) || 0,
           freeDeliveryThreshold: Number(s.freeDeliveryThreshold) || 0,
+          shippingCostPerOrder: Number(s.shippingCostPerOrder) || 0,
           salesPopup: s.salesPopup !== false,
           announcementBar: s.announcementBar,
           social: s.social,
@@ -105,6 +107,16 @@ export default function Settings() {
       </section>
 
       <section className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
+        <h2 className="font-semibold">Business details <span className="text-xs font-normal text-gray-500">(shown in the footer of the store)</span></h2>
+        <Field label="Registered business name" hint="Shown in the copyright line instead of the store name. Leave empty to use the store name.">
+          <input className={inputCls} value={s.legalName || ''} onChange={(e) => set('legalName', e.target.value)} />
+        </Field>
+        <Field label="Commercial Registration (CR) number" hint="Shown as “CR No. …” in the footer. Leave empty to hide it.">
+          <input className={inputCls} value={s.crNumber || ''} onChange={(e) => set('crNumber', e.target.value)} />
+        </Field>
+      </section>
+
+      <section className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
         <h2 className="font-semibold">Delivery</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Delivery fee (QAR)" hint="0 = free delivery">
@@ -114,6 +126,9 @@ export default function Settings() {
             <input type="number" min="0" className={inputCls} value={s.freeDeliveryThreshold ?? 0} onChange={(e) => set('freeDeliveryThreshold', e.target.value)} />
           </Field>
         </div>
+        <Field label="Shipping cost you pay per delivery (QAR)" hint="What the driver or courier costs you. Used in profit reports. You can adjust it on each order.">
+          <input type="number" min="0" className={inputCls} value={s.shippingCostPerOrder ?? 0} onChange={(e) => set('shippingCostPerOrder', e.target.value)} />
+        </Field>
       </section>
 
       <section className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm">

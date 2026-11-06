@@ -5,10 +5,12 @@ import { api } from '../../lib/api'
 import { getUtm } from '../../lib/utm'
 import { track } from '../../lib/pixel'
 import { deliveryFor } from '../../lib/delivery'
+import { hasOffer, clearOffer } from '../../lib/offer'
 import { AREAS } from '../areas'
 import { useStore } from '../storeContext'
 
 const phoneOk = (v) => /^[3567]\d{7}$/.test(v)
+const codeOk = (v) => /^[0-9A-Za-z/-]{1,10}$/.test(v.trim())
 
 function Field({ label, error, children }) {
   return (
@@ -29,7 +31,9 @@ const inputCls = (err) =>
 export default function OrderForm({ lines, onPlaced }) {
   const { t, lang, money, settings } = useStore()
   const navigate = useNavigate()
-  const [f, setF] = useState({ name: '', phone: '', area: '', address: '', notes: '', website: '' })
+  const [f, setF] = useState({
+    name: '', phone: '', area: '', zone: '', street: '', building: '', address: '', notes: '', website: '',
+  })
   const [errors, setErrors] = useState({})
   const [serverError, setServerError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -41,8 +45,10 @@ export default function OrderForm({ lines, onPlaced }) {
 
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0)
-  const delivery = deliveryFor(subtotal, settings)
-  const total = subtotal + delivery
+  const percent = settings.exitOffer?.enabled && hasOffer() ? Number(settings.exitOffer.percent) || 0 : 0
+  const discount = percent ? Math.round(subtotal * percent) / 100 : 0
+  const delivery = deliveryFor(subtotal - discount, settings)
+  const total = subtotal - discount + delivery
   const linesKey = lines.map((l) => `${l.productId}|${l.variantName || ''}|${l.qty}`).join(',')
 
   // remember an unfinished order once a valid phone number has been typed
@@ -64,6 +70,7 @@ export default function OrderForm({ lines, onPlaced }) {
       const signature = JSON.stringify(body)
       if (signature === lastLead.current) return
       lastLead.current = signature
+      sessionStorage.setItem('nx_lead', '1')
       api('/leads', { method: 'POST', body }).catch(() => {})
     }, 1500)
     return () => clearTimeout(timer)
@@ -74,7 +81,9 @@ export default function OrderForm({ lines, onPlaced }) {
     if (f.name.trim().length < 2) e.name = t('errName')
     if (!phoneOk(f.phone.trim())) e.phone = t('errPhone')
     if (!f.area) e.area = t('errArea')
-    if (f.address.trim().length < 3) e.address = t('errAddress')
+    if (!codeOk(f.zone)) e.zone = t('errZone')
+    if (!codeOk(f.street)) e.street = t('errStreet')
+    if (!codeOk(f.building)) e.building = t('errBuilding')
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -94,10 +103,14 @@ export default function OrderForm({ lines, onPlaced }) {
             name: f.name.trim(),
             phone: f.phone.trim(),
             area: area?.en,
-            address: f.address.trim(),
+            zone: f.zone.trim(),
+            street: f.street.trim(),
+            building: f.building.trim(),
+            address: f.address.trim() || undefined,
             notes: f.notes.trim() || undefined,
           },
           items: lines.map((l) => ({ productId: l.productId, variantName: l.variantName || undefined, qty: l.qty })),
+          offer: percent > 0 ? true : undefined,
           source: 'website',
           utm: getUtm(),
           website: f.website,
@@ -108,6 +121,7 @@ export default function OrderForm({ lines, onPlaced }) {
         content_ids: lines.map((l) => l.productId),
         num_items: lines.reduce((n, l) => n + l.qty, 0),
       })
+      if (percent > 0) clearOffer()
       onPlaced?.()
       navigate(`/order-success?n=${encodeURIComponent(res.orderNumber)}&t=${res.total}`)
     } catch (err) {
@@ -117,6 +131,12 @@ export default function OrderForm({ lines, onPlaced }) {
       setBusy(false)
     }
   }
+
+  const numberInput = (key, error) => (
+    <input inputMode="numeric" maxLength={10} value={f[key]} dir="ltr"
+      onChange={(e) => set(key, e.target.value.replace(/[^0-9A-Za-z/-]/g, ''))}
+      className={inputCls(error)} />
+  )
 
   return (
     <form onSubmit={submit} noValidate className="relative space-y-4">
@@ -151,9 +171,15 @@ export default function OrderForm({ lines, onPlaced }) {
         </select>
       </Field>
 
-      <Field label={t('address')} error={errors.address}>
+      <div className="grid grid-cols-3 gap-3">
+        <Field label={t('zone')} error={errors.zone}>{numberInput('zone', errors.zone)}</Field>
+        <Field label={t('street')} error={errors.street}>{numberInput('street', errors.street)}</Field>
+        <Field label={t('building')} error={errors.building}>{numberInput('building', errors.building)}</Field>
+      </div>
+
+      <Field label={t('landmark')}>
         <textarea rows={2} maxLength={300} value={f.address} placeholder={t('addressHint')}
-          onChange={(e) => set('address', e.target.value)} className={inputCls(errors.address)} />
+          onChange={(e) => set('address', e.target.value)} className={inputCls(false)} />
       </Field>
 
       <Field label={t('notes')}>
@@ -163,6 +189,11 @@ export default function OrderForm({ lines, onPlaced }) {
 
       <div className="space-y-1 rounded-xl bg-gray-50 p-4 text-sm">
         <div className="flex justify-between"><span>{t('subtotal')}</span><span>{money(subtotal)}</span></div>
+        {discount > 0 && (
+          <div className="flex justify-between text-green-700">
+            <span>{t('discountLine').replace('{n}', percent)}</span><span>− {money(discount)}</span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span>{t('delivery')}</span><span>{delivery === 0 ? t('free') : money(delivery)}</span>
         </div>

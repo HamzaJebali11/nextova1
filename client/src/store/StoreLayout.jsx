@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { captureUtm } from '../lib/utm'
+import { trackVisit } from '../lib/track'
 import AnnouncementBar from './components/AnnouncementBar'
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -16,6 +17,10 @@ export default function StoreLayout() {
   useEffect(() => {
     captureUtm()
   }, [])
+
+  useEffect(() => {
+    trackVisit(pathname)
+  }, [pathname])
 
   useEffect(() => {
     window.scrollTo(0, 0)

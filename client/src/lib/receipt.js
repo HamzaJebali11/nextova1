@@ -4,7 +4,8 @@ const T = {
   en: {
     hello: (n) => `Hello ${n},`,
     thanks: (store, num) => `Thank you for shopping with ${store}! Your order ${num} has been delivered. ✅`,
-    receipt: 'Receipt', date: 'Date', subtotal: 'Subtotal', delivery: 'Delivery', free: 'Free', freeLabel: 'FREE',
+    receipt: 'Receipt', date: 'Date', subtotal: 'Subtotal', discount: 'Discount', delivery: 'Delivery',
+    free: 'Free', freeLabel: 'FREE',
     total: 'Total paid (cash on delivery)',
     review: 'We would love your feedback. Please leave a quick review (photos welcome):',
     help: 'Need anything? Just reply to this message.',
@@ -13,7 +14,8 @@ const T = {
   ar: {
     hello: (n) => `مرحبًا ${n}،`,
     thanks: (store, num) => `شكرًا لتسوقك من ${store}! تم توصيل طلبك رقم ${num}. ✅`,
-    receipt: 'الإيصال', date: 'التاريخ', subtotal: 'المجموع الفرعي', delivery: 'التوصيل', free: 'مجاني', freeLabel: 'مجانًا',
+    receipt: 'الإيصال', date: 'التاريخ', subtotal: 'المجموع الفرعي', discount: 'الخصم', delivery: 'التوصيل',
+    free: 'مجاني', freeLabel: 'مجانًا',
     total: 'الإجمالي المدفوع (الدفع عند الاستلام)',
     review: 'يسعدنا سماع رأيك. اترك تقييمًا سريعًا (الصور مرحّب بها):',
     help: 'هل تحتاج أي مساعدة؟ ردّ على هذه الرسالة.',
@@ -48,6 +50,7 @@ export function buildReceipt(order, { lang = 'en', storeName = 'Nextova', siteUr
     `🧾 ${t.receipt} · ${t.date}: ${date}`,
     ...lines, '',
     `${t.subtotal}: ${t.money(order.subtotal)}`,
+    ...(order.discount > 0 ? [`${t.discount}: −${t.money(order.discount)}`] : []),
     `${t.delivery}: ${order.deliveryFee ? t.money(order.deliveryFee) : t.free}`,
     `*${t.total}: ${t.money(order.total)}*`,
     ...(links.length ? ['', `⭐ ${t.review}`, ...links] : []),

@@ -8,7 +8,7 @@ import { WhatsAppIcon } from './icons'
 const year = new Date().getFullYear()
 
 export default function Footer() {
-  const { t, pick, settings, categories } = useStore()
+  const { t, lang, pick, settings, categories } = useStore()
   const [pages, setPages] = useState([])
 
   useEffect(() => {
@@ -76,8 +76,12 @@ export default function Footer() {
           </ul>
         </div>
       </div>
+
       <div className="border-t border-white/10 py-5 text-center text-xs text-gray-500">
-        © {year} {name}. {t('rights')}.
+        <div>© {year} {settings.legalName || name}. {t('rights')}.</div>
+        {settings.crNumber && (
+          <div className="mt-1">{lang === 'ar' ? 'السجل التجاري' : 'CR No.'} {settings.crNumber}</div>
+        )}
       </div>
     </footer>
   )

@@ -13,12 +13,15 @@ router.get('/', asyncHandler(async (req, res) => {
   const s = await getSettings()
   res.json({
     storeName: s.storeName,
+    legalName: s.legalName,
+    crNumber: s.crNumber,
     logoUrl: s.logoUrl,
     currency: s.currency,
     whatsappNumber: s.whatsappNumber,
     deliveryFee: s.deliveryFee,
     freeDeliveryThreshold: s.freeDeliveryThreshold,
     salesPopup: s.salesPopup !== false,
+    exitOffer: { enabled: !!s.exitOffer?.enabled, percent: s.exitOffer?.percent || 10 },
     announcementBar: s.announcementBar,
     social: s.social,
     pixelId: s.pixelId,

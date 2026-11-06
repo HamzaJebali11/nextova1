@@ -5,11 +5,14 @@ import AdminLayout from './admin/AdminLayout'
 import Login from './admin/pages/Login'
 import Dashboard from './admin/pages/Dashboard'
 import Orders from './admin/pages/Orders'
+import DeliverySheet from './admin/pages/DeliverySheet'
 import Leads from './admin/pages/Leads'
+import Waitlist from './admin/pages/Waitlist'
 import Products from './admin/pages/Products'
 import Categories from './admin/pages/Categories'
 import Reviews from './admin/pages/Reviews'
 import AdSpend from './admin/pages/AdSpend'
+import Visitors from './admin/pages/Visitors'
 import Pages from './admin/pages/Pages'
 import Settings from './admin/pages/Settings'
 import StoreShell from './store/StoreShell'
@@ -37,11 +40,14 @@ export default function App() {
         <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="orders" element={<Orders />} />
+          <Route path="delivery" element={<DeliverySheet />} />
           <Route path="leads" element={<Leads />} />
+          <Route path="waitlist" element={<Waitlist />} />
           <Route path="products" element={<Products />} />
           <Route path="categories" element={<Categories />} />
           <Route path="reviews" element={<Reviews />} />
           <Route path="ads" element={<AdSpend />} />
+          <Route path="visitors" element={<Visitors />} />
           <Route path="pages" element={<Pages />} />
           <Route path="settings" element={<Settings />} />
         </Route>

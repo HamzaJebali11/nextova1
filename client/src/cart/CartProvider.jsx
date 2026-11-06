@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CartCtx } from './cartContext'
-import { bestTotal } from '../lib/pricing'
+import { repriceCart } from '../lib/pricing'
 
 const KEY = 'nx_cart'
 
@@ -12,15 +12,26 @@ function read() {
   }
 }
 
-// Unit price after pack offers. Display only: the server recalculates everything when an order is placed.
-function reprice(item) {
-  const base = item.base ?? item.price
-  const total = bestTotal(item.qty, base, item.packs || [])
-  return { ...item, base, price: total / item.qty }
+// adds lines (each with its own qty); the same product + variant becomes one line
+function merge(prev, lines) {
+  let next = [...prev]
+  for (const line of lines) {
+    const key = `${line.productId}|${line.variantName || ''}`
+    const found = next.find((i) => i.key === key)
+    if (found) {
+      next = next.map((i) =>
+        i.key === key ? { ...i, ...line, key, qty: Math.min(20, i.qty + line.qty) } : i
+      )
+    } else {
+      next.push({ ...line, key, qty: Math.min(20, line.qty) })
+    }
+  }
+  return repriceCart(next)
 }
 
+// Prices here are for display only: the server recalculates everything when an order is placed.
 export function CartProvider({ children }) {
-  const [items, setItems] = useState(read)
+  const [items, setItems] = useState(() => repriceCart(read()))
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -33,22 +44,13 @@ export function CartProvider({ children }) {
     setOpen,
     count: items.reduce((n, i) => n + i.qty, 0),
     subtotal: Math.round(items.reduce((s, i) => s + i.price * i.qty, 0) * 100) / 100,
-    add: (item, qty = 1) =>
-      setItems((prev) => {
-        const key = `${item.productId}|${item.variantName || ''}`
-        const found = prev.find((i) => i.key === key)
-        if (found) {
-          return prev.map((i) =>
-            i.key === key ? reprice({ ...i, ...item, qty: Math.min(20, i.qty + qty) }) : i
-          )
-        }
-        return [...prev, reprice({ ...item, key, qty })]
-      }),
+    add: (item, qty = 1) => setItems((prev) => merge(prev, [{ ...item, qty }])),
+    addMany: (lines) => setItems((prev) => merge(prev, lines)),
     setQty: (key, qty) =>
       setItems((prev) =>
-        prev.map((i) => (i.key === key ? reprice({ ...i, qty: Math.max(1, Math.min(20, qty)) }) : i))
+        repriceCart(prev.map((i) => (i.key === key ? { ...i, qty: Math.max(1, Math.min(20, qty)) } : i)))
       ),
-    remove: (key) => setItems((prev) => prev.filter((i) => i.key !== key)),
+    remove: (key) => setItems((prev) => repriceCart(prev.filter((i) => i.key !== key))),
     clear: () => setItems([]),
   }), [items, open])
 

@@ -1,26 +1,65 @@
+import { useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  LayoutDashboard, ShoppingBag, PhoneCall, Package, Tags, Star, Megaphone, FileText,
+  LayoutDashboard, ShoppingBag, Truck, PhoneCall, Bell, Package, Tags, Star, Megaphone, Eye, FileText,
   Settings as SettingsIcon, LogOut,
 } from 'lucide-react'
+import { api } from '../lib/api'
 import { useAuth } from './useAuth'
 
 const links = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/admin/orders', label: 'Orders', icon: ShoppingBag },
-  { to: '/admin/leads', label: 'Unfinished orders', icon: PhoneCall },
+  { to: '/admin/orders', label: 'Orders', icon: ShoppingBag, badge: 'orders' },
+  { to: '/admin/delivery', label: 'Delivery sheet', icon: Truck },
+  { to: '/admin/leads', label: 'Unfinished orders', icon: PhoneCall, badge: 'leads' },
+  { to: '/admin/waitlist', label: 'Waiting list', icon: Bell, badge: 'waitlist' },
   { to: '/admin/products', label: 'Products', icon: Package },
   { to: '/admin/categories', label: 'Categories', icon: Tags },
-  { to: '/admin/reviews', label: 'Reviews', icon: Star },
+  { to: '/admin/reviews', label: 'Reviews', icon: Star, badge: 'reviews' },
   { to: '/admin/ads', label: 'Ads & costs', icon: Megaphone },
+  { to: '/admin/visitors', label: 'Visitors', icon: Eye },
   { to: '/admin/pages', label: 'Pages', icon: FileText },
   { to: '/admin/settings', label: 'Settings', icon: SettingsIcon },
 ]
 
+function Badge({ n, className = '' }) {
+  if (!n) return null
+  return (
+    <span className={`grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-bold leading-none text-white ${className}`}>
+      {n > 99 ? '99+' : n}
+    </span>
+  )
+}
+
 export default function AdminLayout() {
   const { admin, logout } = useAuth()
   const { pathname } = useLocation()
+  const [counts, setCounts] = useState({})
+
+  const loadCounts = useCallback(() => {
+    api('/counts').then(setCounts).catch(() => {})
+  }, [])
+
+  // refresh every 30 seconds, when you come back to the tab, and when you change page
+  useEffect(() => {
+    const id = setInterval(loadCounts, 30000)
+    window.addEventListener('focus', loadCounts)
+    return () => {
+      clearInterval(id)
+      window.removeEventListener('focus', loadCounts)
+    }
+  }, [loadCounts])
+
+  useEffect(() => {
+    loadCounts()
+  }, [pathname, loadCounts])
+
+  const total = ['orders', 'leads', 'reviews', 'waitlist'].reduce((s, k) => s + (counts[k] || 0), 0)
+  useEffect(() => {
+    document.title = total ? `(${total}) Nextova admin` : 'Nextova admin'
+    return () => { document.title = 'Nextova' }
+  }, [total])
 
   const linkClass = ({ isActive }) =>
     `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
@@ -34,10 +73,11 @@ export default function AdminLayout() {
         <div className="mb-6 px-3 text-xl font-bold tracking-tight">
           Nextova <span className="text-xs font-normal text-gray-400">admin</span>
         </div>
-        <nav className="flex flex-1 flex-col gap-1">
-          {links.map(({ to, label, icon: Icon, end }) => (
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
+          {links.map(({ to, label, icon: Icon, end, badge }) => (
             <NavLink key={to} to={to} end={end} className={linkClass}>
               <Icon size={18} /> {label}
+              {badge && <Badge n={counts[badge]} className="ms-auto" />}
             </NavLink>
           ))}
         </nav>
@@ -55,9 +95,11 @@ export default function AdminLayout() {
         <header className="flex items-center justify-between gap-2 border-b bg-white px-4 py-3 md:hidden">
           <span className="font-bold">Nextova</span>
           <nav className="flex items-center gap-1 overflow-x-auto">
-            {links.map(({ to, label, icon: Icon, end }) => (
-              <NavLink key={to} to={to} end={end} className={linkClass} title={label}>
+            {links.map(({ to, label, icon: Icon, end, badge }) => (
+              <NavLink key={to} to={to} end={end} title={label}
+                className={(state) => `${linkClass(state)} relative`}>
                 <Icon size={18} />
+                {badge && <Badge n={counts[badge]} className="absolute -end-1 -top-1" />}
               </NavLink>
             ))}
             <button onClick={logout} className="rounded-lg p-2 text-gray-600 hover:bg-gray-100">

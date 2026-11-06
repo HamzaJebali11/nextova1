@@ -9,6 +9,7 @@ import { httpError } from '../../utils/httpError.js'
 import { protect } from '../../middleware/auth.js'
 import { sendOrderEmail } from '../../utils/mailer.js'
 import { bestTotal } from '../../utils/pricing.js'
+import { reserveStock, releaseStock } from '../../utils/stock.js'
 
 const router = Router()
 
@@ -19,6 +20,7 @@ const orderLimiter = rateLimit({
 })
 
 const qatarPhone = /^(?:\+?974)?[3567]\d{7}$/
+const addressCode = z.string().trim().regex(/^[0-9A-Za-z/-]{1,10}$/, 'Enter a valid number')
 
 const createSchema = z.object({
   customer: z.object({
@@ -28,7 +30,10 @@ const createSchema = z.object({
       .refine((s) => qatarPhone.test(s), 'Enter a valid Qatar phone number')
       .transform((s) => '+974' + s.slice(-8)),
     area: z.string().trim().max(80).optional(),
-    address: z.string().trim().min(3).max(300),
+    zone: addressCode,
+    street: addressCode,
+    building: addressCode,
+    address: z.string().trim().max(300).optional(),
     notes: z.string().trim().max(500).optional(),
   }),
   items: z.array(z.object({
@@ -36,33 +41,13 @@ const createSchema = z.object({
     variantName: z.string().optional(),
     qty: z.number().int().min(1).max(20),
   })).min(1).max(30),
+  offer: z.boolean().optional(), // the "leaving" discount (only works if you switched it on)
   source: z.enum(['website', 'whatsapp']).default('website'),
   utm: z.object({
     source: z.string().optional(), medium: z.string().optional(), campaign: z.string().optional(),
   }).optional(),
   website: z.string().optional(), // hidden "honeypot" field: real people leave it empty
 })
-
-// ---- stock helpers (atomic, so two buyers can't take the last item) ----
-async function reserveStock(productId, variantName, qty) {
-  const res = variantName
-    ? await Product.updateOne(
-        { _id: productId, variants: { $elemMatch: { name: variantName, stock: { $gte: qty } } } },
-        { $inc: { 'variants.$.stock': -qty, stock: -qty, soldCount: qty } })
-    : await Product.updateOne(
-        { _id: productId, stock: { $gte: qty } },
-        { $inc: { stock: -qty, soldCount: qty } })
-  return res.modifiedCount === 1
-}
-
-async function releaseStock(productId, variantName, qty) {
-  if (variantName) {
-    await Product.updateOne({ _id: productId, 'variants.name': variantName },
-      { $inc: { 'variants.$.stock': qty, stock: qty, soldCount: -qty } })
-  } else {
-    await Product.updateOne({ _id: productId }, { $inc: { stock: qty, soldCount: -qty } })
-  }
-}
 
 const r2 = (n) => Math.round(n * 100) / 100
 
@@ -74,51 +59,68 @@ router.post('/', orderLimiter, asyncHandler(async (req, res) => {
   const settings = (await Settings.findOne({ key: 'main' })) || {}
   const reserved = []
   const lines = []
-  const gifts = new Map() // gift product id -> total quantity
   const notes = []
   let order
 
   try {
-    for (const it of data.items) {
-      const product = await Product.findOne({ _id: it.productId, isActive: true }).select('+costPrice')
+    const ids = [...new Set(data.items.map((i) => i.productId))]
+    const products = await Product.find({ _id: { $in: ids }, isActive: true }).select('+costPrice')
+    const byId = new Map(products.map((p) => [String(p._id), p]))
+
+    // 1) check every line
+    const rows = data.items.map((it) => {
+      const product = byId.get(it.productId)
       if (!product) throw httpError(400, 'A product in your cart is no longer available')
-
-      let base = product.price
-      let variantName
-      let usePacks = true
+      let variant = null
       if (product.variants.length) {
-        const variant = product.variants.find((v) => v.name === it.variantName)
+        variant = product.variants.find((v) => v.name === it.variantName)
         if (!variant) throw httpError(400, `Please choose an option for ${product.name.en}`)
-        variantName = variant.name
-        if (variant.price) {
-          base = variant.price
-          usePacks = false // pack offers only apply to the normal price
-        }
       }
+      // a variant with its own price is sold at that price, without pack offers
+      return { it, product, variant, pooled: !(variant && variant.price) }
+    })
 
-      if (!(await reserveStock(product._id, variantName, it.qty))) {
-        throw httpError(409, `Sorry, ${product.name.en}${variantName ? ` (${variantName})` : ''} is out of stock`)
-      }
-      reserved.push({ id: product._id, variantName, qty: it.qty })
-
-      // the price comes from the database, using the best mix of pack offers
-      const lineTotal = bestTotal(it.qty, base, usePacks ? product.packs : [])
-      lines.push({
-        product: product._id, name: product.name.en, variantName,
-        price: lineTotal / it.qty, cost: product.costPrice || 0, qty: it.qty, image: product.images?.[0]?.url,
-      })
-
-      // free gift for buying this product
-      const g = product.freeGift
-      if (g?.enabled && g.product && String(g.product) !== String(product._id)) {
-        const times = Math.floor(it.qty / (g.minQty || 1))
-        if (times > 0) {
-          const key = String(g.product)
-          gifts.set(key, (gifts.get(key) || 0) + times * (g.qty || 1))
-        }
-      }
+    // 2) lines of the same product share the pack offers (1 red + 1 blue counts as 2 for "2 packs")
+    const allQty = {}
+    const pooledQty = {}
+    for (const r of rows) {
+      const id = String(r.product._id)
+      allQty[id] = (allQty[id] || 0) + r.it.qty
+      if (r.pooled) pooledQty[id] = (pooledQty[id] || 0) + r.it.qty
+    }
+    const unitPrice = {}
+    for (const [id, q] of Object.entries(pooledQty)) {
+      const p = byId.get(id)
+      unitPrice[id] = bestTotal(q, p.price, p.packs) / q
     }
 
+    // 3) reserve stock and build the order lines (price always comes from the database)
+    for (const r of rows) {
+      const id = String(r.product._id)
+      if (!(await reserveStock(r.product._id, r.variant?.name, r.it.qty))) {
+        throw httpError(409, `Sorry, ${r.product.name.en}${r.variant ? ` (${r.variant.name})` : ''} is out of stock`)
+      }
+      reserved.push({ id: r.product._id, variantName: r.variant?.name, qty: r.it.qty })
+      lines.push({
+        product: r.product._id,
+        name: r.product.name.en,
+        variantName: r.variant?.name,
+        price: r.pooled ? unitPrice[id] : r.variant.price,
+        cost: r.product.costPrice || 0,
+        qty: r.it.qty,
+        image: r.variant?.image || r.product.images?.[0]?.url,
+      })
+    }
+
+    // 4) free gifts for buying a product
+    const gifts = new Map() // gift product id -> total quantity
+    for (const [id, q] of Object.entries(allQty)) {
+      const g = byId.get(id).freeGift
+      if (g?.enabled && g.product && String(g.product) !== id) {
+        const times = Math.floor(q / (g.minQty || 1))
+        if (times > 0) gifts.set(String(g.product), (gifts.get(String(g.product)) || 0) + times * (g.qty || 1))
+      }
+    }
     for (const [giftId, qty] of gifts) {
       const gift = await Product.findOne({ _id: giftId, isActive: true }).select('+costPrice')
       if (!gift || gift.variants.length || !(await reserveStock(gift._id, undefined, qty))) {
@@ -132,13 +134,27 @@ router.post('/', orderLimiter, asyncHandler(async (req, res) => {
       })
     }
 
+    // 5) totals (the percentage offer works once per phone number and only if you switched it on)
     const subtotal = r2(lines.reduce((s, l) => s + l.price * l.qty, 0))
+    let discount = 0
+    let couponCode
+    const offer = settings.exitOffer
+    if (data.offer && offer?.enabled && offer.percent > 0) {
+      const used = await Order.exists({
+        'customer.phone': data.customer.phone, couponCode: 'EXIT_OFFER', status: { $ne: 'cancelled' },
+      })
+      if (!used) {
+        discount = r2((subtotal * Math.min(50, offer.percent)) / 100)
+        couponCode = 'EXIT_OFFER'
+      }
+    }
+    const afterDiscount = r2(subtotal - discount)
     const freeFrom = settings.freeDeliveryThreshold || 0
-    const deliveryFee = freeFrom > 0 && subtotal >= freeFrom ? 0 : settings.deliveryFee || 0
+    const deliveryFee = freeFrom > 0 && afterDiscount >= freeFrom ? 0 : settings.deliveryFee || 0
 
     order = await Order.create({
-      customer: data.customer, items: lines, subtotal, deliveryFee,
-      total: r2(subtotal + deliveryFee), shippingCost: Number(settings.shippingCostPerOrder) || 0,
+      customer: data.customer, items: lines, subtotal, discount, couponCode, deliveryFee,
+      total: r2(afterDiscount + deliveryFee), shippingCost: Number(settings.shippingCostPerOrder) || 0,
       source: data.source, utm: data.utm, ip: req.ip,
       adminNotes: notes.join('\n') || undefined,
     })
@@ -192,9 +208,12 @@ router.get('/stats', protect, asyncHandler(async (req, res) => {
 }))
 
 router.get('/', protect, asyncHandler(async (req, res) => {
-  const { status, q, from, to, page = 1, limit = 20 } = req.query
+  const { status, q, from, to, zone, source, page = 1, limit = 20 } = req.query
   const filter = {}
   if (status) filter.status = status
+  if (zone) filter['customer.zone'] = String(zone).trim()
+  if (source === 'website') filter.source = 'website'
+  else if (source === 'other') filter.source = { $ne: 'website' }
   if (q) {
     const rx = new RegExp(String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
     filter.$or = [{ orderNumber: rx }, { 'customer.phone': rx }, { 'customer.name': rx }]

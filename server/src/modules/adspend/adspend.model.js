@@ -6,6 +6,7 @@ const adSpendSchema = new mongoose.Schema({
   amount: { type: Number, required: true, min: 0 },
   platform: { type: String, default: 'Facebook' },
   note: String,
+  product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' }, // optional: spend for one product
 }, { timestamps: true })
 
 export default mongoose.model('AdSpend', adSpendSchema)

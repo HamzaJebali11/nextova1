@@ -1,15 +1,26 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { MessageCircle, Phone, X } from 'lucide-react'
+import { Download, MapPin, MessageCircle, Phone, X } from 'lucide-react'
 import { api } from '../../lib/api'
+import { downloadFile } from '../../lib/download'
+import { addressParts } from '../../lib/address'
 import { STATUSES, money, fmtDate } from '../../lib/constants'
 import StatusBadge from '../components/StatusBadge'
 import ReceiptPanel from '../components/ReceiptPanel'
 import CostsPanel from '../components/CostsPanel'
+import { WhatsAppState, LocationState } from '../components/OrderBadges'
+
+const itemsSummary = (o) =>
+  o.items
+    .filter((i) => i.price > 0)
+    .map((i) => `${i.qty} × ${i.name}${i.variantName ? ` (${i.variantName})` : ''}`)
+    .join('  ·  ')
+
 function Drawer({ order, onClose, onChanged }) {
   const [note, setNote] = useState(order.adminNotes || '')
   const [busy, setBusy] = useState(false)
   const c = order.customer
+  const parts = addressParts(c)
   const wa = `https://wa.me/${c.phone.replace('+', '')}?text=${encodeURIComponent(
     `Hello ${c.name}, this is Nextova about your order ${order.orderNumber}.`
   )}`
@@ -44,47 +55,73 @@ function Drawer({ order, onClose, onChanged }) {
           <h2 className="text-xl font-bold">{order.orderNumber}</h2>
           <button onClick={onClose} className="rounded-lg p-2 hover:bg-gray-100"><X size={18} /></button>
         </div>
-        <div className="mb-1"><StatusBadge status={order.status} /></div>
+
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <StatusBadge status={order.status} />
+          <WhatsAppState order={order} />
+          <LocationState order={order} />
+        </div>
         <div className="mb-5 text-xs text-gray-500">{fmtDate(order.createdAt)} · {order.source}</div>
-           {(order.utm?.source || order.utm?.campaign) && (
-  <div className="mb-5 text-xs text-gray-500">
-    Ad: {[order.utm.source, order.utm.medium, order.utm.campaign].filter(Boolean).join(' / ')}
-  </div>
-)}
+        {(order.utm?.source || order.utm?.campaign) && (
+          <div className="-mt-3 mb-5 text-xs text-gray-500">
+            Ad: {[order.utm.source, order.utm.medium, order.utm.campaign].filter(Boolean).join(' / ')}
+          </div>
+        )}
+
         <section className="mb-5 rounded-xl bg-gray-50 p-4 text-sm">
           <div className="font-semibold">{c.name}</div>
           <div className="text-gray-600">{c.phone}</div>
-          <div className="mt-2 text-gray-600">{[c.area, c.address].filter(Boolean).join(' · ')}</div>
+          {c.area && <div className="mt-2 font-medium text-gray-800">{c.area}</div>}
+          {parts.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-2">
+              {parts.map((p) => (
+                <span key={p} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">{p}</span>
+              ))}
+            </div>
+          )}
+          {c.address && <div className="mt-2 text-gray-600">{c.address}</div>}
           {c.notes && <div className="mt-2 italic text-gray-500">"{c.notes}"</div>}
-          <div className="mt-3 flex gap-2">
+          {order.location?.name && <div className="mt-2 text-gray-600">📍 {order.location.name}</div>}
+          <div className="mt-3 flex flex-wrap gap-2">
             <a href={wa} target="_blank" rel="noreferrer"
               className="flex items-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-white hover:bg-green-700">
               <MessageCircle size={16} /> WhatsApp
             </a>
-            <a href={`tel:${c.phone}`}
-              className="flex items-center gap-2 rounded-lg border px-3 py-2 hover:bg-gray-100">
+            <a href={`tel:${c.phone}`} className="flex items-center gap-2 rounded-lg border px-3 py-2 hover:bg-gray-100">
               <Phone size={16} /> Call
             </a>
+            {order.location?.url && (
+              <a href={order.location.url} target="_blank" rel="noreferrer"
+                className="flex items-center gap-2 rounded-lg border px-3 py-2 hover:bg-gray-100">
+                <MapPin size={16} /> Open location
+              </a>
+            )}
           </div>
         </section>
-        <ReceiptPanel order={order} />
-        <CostsPanel order={order} onChanged={onChanged} />
+
         <section className="mb-5">
           <h3 className="mb-2 font-semibold">Items</h3>
           <ul className="divide-y text-sm">
             {order.items.map((it, i) => (
               <li key={i} className="flex items-center gap-3 py-2">
-                {it.image && <img src={it.image} alt="" className="h-12 w-12 rounded-lg object-cover" />}
+                {it.image && <img src={it.image} alt="" className="h-14 w-14 rounded-lg object-cover" />}
                 <div className="flex-1">
                   <div className="font-medium">{it.name}</div>
-                  {it.variantName && <div className="text-xs text-gray-500">{it.variantName}</div>}
+                  {it.variantName && (
+                    <div className="mt-0.5 inline-block rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                      {it.variantName}
+                    </div>
+                  )}
                 </div>
-                <div className="text-right">{it.qty} × {money(it.price)}</div>
+                <div className="text-right">{it.qty} × {it.price === 0 ? 'FREE' : money(it.price)}</div>
               </li>
             ))}
           </ul>
           <div className="mt-3 space-y-1 border-t pt-3 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>{money(order.subtotal)}</span></div>
+            {order.discount > 0 && (
+              <div className="flex justify-between text-green-700"><span>Discount</span><span>− {money(order.discount)}</span></div>
+            )}
             <div className="flex justify-between"><span>Delivery</span><span>{money(order.deliveryFee)}</span></div>
             <div className="flex justify-between text-base font-bold"><span>Total (cash on delivery)</span><span>{money(order.total)}</span></div>
           </div>
@@ -105,6 +142,9 @@ function Drawer({ order, onClose, onChanged }) {
           </div>
           <p className="mt-2 text-xs text-gray-500">Cancelling or returning an order puts its items back in stock.</p>
         </section>
+
+        <ReceiptPanel order={order} />
+        <CostsPanel order={order} onChanged={onChanged} />
 
         <section className="mb-5">
           <h3 className="mb-2 font-semibold">Private notes</h3>
@@ -131,22 +171,35 @@ function Drawer({ order, onClose, onChanged }) {
 export default function Orders() {
   const [status, setStatus] = useState('')
   const [q, setQ] = useState('')
+  const [zone, setZone] = useState('')
+  const [source, setSource] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
   const [page, setPage] = useState(1)
   const [data, setData] = useState({ items: [], pages: 1, total: 0 })
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
+  const [exporting, setExporting] = useState(false)
+
+  // dates are Qatar time (UTC+3)
+  const fromIso = from ? new Date(`${from}T00:00:00+03:00`).toISOString() : ''
+  const toIso = to ? new Date(`${to}T23:59:59.999+03:00`).toISOString() : ''
 
   const load = useCallback(async () => {
     setLoading(true)
     const params = new URLSearchParams({ page })
     if (status) params.set('status', status)
     if (q.trim()) params.set('q', q.trim())
+    if (zone.trim()) params.set('zone', zone.trim())
+    if (source) params.set('source', source)
+    if (from) params.set('from', new Date(`${from}T00:00:00+03:00`).toISOString())
+    if (to) params.set('to', new Date(`${to}T23:59:59.999+03:00`).toISOString())
     try {
       setData(await api(`/orders?${params}`))
     } finally {
       setLoading(false)
     }
-  }, [status, q, page])
+  }, [status, q, zone, source, from, to, page])
 
   useEffect(() => {
     const t = setTimeout(load, 250)
@@ -157,6 +210,28 @@ export default function Orders() {
     setSelected(updated)
     setData((d) => ({ ...d, items: d.items.map((o) => (o._id === updated._id ? updated : o)) }))
   }
+
+  async function exportExcel() {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams()
+      if (status) params.set('status', status)
+      if (q.trim()) params.set('search', q.trim())
+      if (zone.trim()) params.set('zone', zone.trim())
+      if (source) params.set('source', source)
+      if (fromIso) params.set('from', fromIso)
+      if (toIso) params.set('to', toIso)
+      const name = `orders-${status || 'all'}${zone.trim() ? `-zone${zone.trim()}` : ''}-${new Date().toISOString().slice(0, 10)}.xlsx`
+      await downloadFile(`/exports/orders.xlsx?${params}`, name)
+    } catch (e) {
+      alert(e.message)
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const box = 'rounded-lg border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-900'
+  const reset = (fn) => (e) => { fn(e.target.value); setPage(1) }
 
   return (
     <div>
@@ -173,9 +248,29 @@ export default function Orders() {
         ))}
       </div>
 
-      <input value={q} onChange={(e) => { setQ(e.target.value); setPage(1) }}
-        placeholder="Search by order number, name or phone…"
-        className="mb-4 w-full rounded-lg border bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-gray-900 md:max-w-md" />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <input value={q} onChange={reset(setQ)} placeholder="Order no., name or phone…" className={`${box} w-full md:w-56`} />
+        <input value={zone} onChange={reset(setZone)} placeholder="Zone no." inputMode="numeric" className={`${box} w-28`} />
+        <select value={source} onChange={reset(setSource)} className={box}>
+          <option value="">All sources</option>
+          <option value="website">Website</option>
+          <option value="other">WhatsApp / manual</option>
+        </select>
+        <label className="flex items-center gap-1 text-sm text-gray-600">From
+          <input type="date" value={from} onChange={reset(setFrom)} className={box} />
+        </label>
+        <label className="flex items-center gap-1 text-sm text-gray-600">To
+          <input type="date" value={to} onChange={reset(setTo)} className={box} />
+        </label>
+        {(from || to || zone || source) && (
+          <button onClick={() => { setFrom(''); setTo(''); setZone(''); setSource(''); setPage(1) }}
+            className="text-sm text-gray-500 underline">Clear filters</button>
+        )}
+        <button onClick={exportExcel} disabled={exporting}
+          className="ms-auto flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60">
+          <Download size={16} /> {exporting ? 'Preparing…' : 'Export to Excel'}
+        </button>
+      </div>
 
       <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
         {loading && data.items.length === 0 && <div className="p-6 text-gray-500">Loading…</div>}
@@ -186,9 +281,19 @@ export default function Orders() {
               onClick={() => setSelected(o)}
               className="flex cursor-pointer items-center justify-between gap-3 p-4">
               <div className="min-w-0">
-                <div className="font-semibold">{o.orderNumber} · {o.customer.name}</div>
+                <div className="font-semibold">
+                  {o.orderNumber} · {o.customer.name}
+                  {o.source && o.source !== 'website' && (
+                    <span className="ms-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">{o.source}</span>
+                  )}
+                </div>
                 <div className="truncate text-sm text-gray-500">
-                  {o.customer.phone} · {o.items.length} item(s) · {fmtDate(o.createdAt)}
+                  {o.customer.phone} · {o.customer.area}{o.customer.zone ? ` · Zone ${o.customer.zone}` : ''} · {fmtDate(o.createdAt)}
+                </div>
+                <div className="mt-1 text-sm text-gray-800">{itemsSummary(o)}</div>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  <WhatsAppState order={o} />
+                  <LocationState order={o} />
                 </div>
               </div>
               <div className="shrink-0 text-right">

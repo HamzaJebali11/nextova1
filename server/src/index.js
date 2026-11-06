@@ -17,7 +17,8 @@ const origins = (process.env.CLIENT_URL || '').split(',').map((s) => s.trim()).f
 app.set('trust proxy', 1)
 app.use(helmet())
 app.use(cors({ origin: origins }))
-app.use(express.json({ limit: '1mb' }))
+// rawBody is kept so the WhatsApp webhook signature can be verified
+app.use(express.json({ limit: '1mb', verify: (req, res, buf) => { req.rawBody = buf } }))
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'))
 
 app.get('/api/v1/health', (req, res) => {

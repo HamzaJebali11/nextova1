@@ -23,7 +23,10 @@ const orderSchema = new mongoose.Schema({
     name: { type: String, required: true },
     phone: { type: String, required: true, index: true },
     area: String,
-    address: { type: String, required: true },
+    zone: { type: String, index: true },
+    street: String,
+    building: String,
+    address: String,   // landmark / extra details (older orders: the full address)
     notes: String,
   },
   items: [itemSchema],
@@ -35,6 +38,22 @@ const orderSchema = new mongoose.Schema({
 
   shippingCost: { type: Number, default: 0 },   // what delivery costs YOU
   deliveredAt: Date,
+
+  // the automatic WhatsApp message: sent | delivered | read | failed
+  whatsapp: {
+    messageId: String,
+    status: String,
+    error: String,
+    sentAt: Date,
+  },
+  // the customer's location, received by WhatsApp
+  location: {
+    lat: Number,
+    lng: Number,
+    url: String,
+    name: String,
+    receivedAt: Date,
+  },
 
   paymentMethod: { type: String, default: 'cod' },
   status: { type: String, enum: ORDER_STATUSES, default: 'new', index: true },
@@ -69,6 +88,7 @@ orderSchema.post('save', async function (doc) {
   } catch {
     // leads are optional: never block an order because of them
   }
+  if (doc.$locals?.skipNotify) return // orders you register yourself do not send the automatic message
   sendOrderWhatsApp(doc).catch((e) => console.error('WhatsApp error:', e.message))
 })
 
