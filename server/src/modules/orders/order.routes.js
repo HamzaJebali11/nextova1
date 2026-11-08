@@ -246,8 +246,7 @@ router.patch('/:id/status', protect, asyncHandler(async (req, res) => {
   if (!order) return res.status(404).json({ message: 'Order not found' })
 
   const closed = ['cancelled', 'returned']
-  if (closed.includes(status) && !closed.includes(order.status)) {
-    for (const it of order.items) await releaseStock(it.product, it.variantName, it.qty) // put items back
+  if (closed.includes(status) && !closed.includes(order.status) && order.stockTaken !== false) {    for (const it of order.items) await releaseStock(it.product, it.variantName, it.qty) // put items back
   }
   order.status = status
   order.deliveredAt = status === 'delivered' ? new Date() : undefined

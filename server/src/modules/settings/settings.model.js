@@ -24,6 +24,13 @@ const settingsSchema = new mongoose.Schema({
   },
   social: { facebook: String, instagram: String, tiktok: String },
   pixelId: String,
+    trust: {
+    delivery: { en: String, ar: String },
+    payment: { en: String, ar: String },
+    returns: { en: String, ar: String },
+    support: { en: String, ar: String },
+  },
+    clarityId: String,
   features: { type: Map, of: Boolean },
   extra: mongoose.Schema.Types.Mixed,
 }, { timestamps: true })

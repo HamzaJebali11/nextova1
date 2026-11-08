@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  LayoutDashboard, ShoppingBag, Truck, PhoneCall, Bell, Package, Tags, Star, Megaphone, Eye, FileText,
+  LayoutDashboard, Activity, ShoppingBag, Plus, Truck, PhoneCall, Bell, Package, Tags, Star, Megaphone, Eye, FileText,
   Settings as SettingsIcon, LogOut,
 } from 'lucide-react'
 import { api } from '../lib/api'
@@ -10,7 +10,9 @@ import { useAuth } from './useAuth'
 
 const links = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
+    { to: '/admin/business', label: 'Business health', icon: Activity },
   { to: '/admin/orders', label: 'Orders', icon: ShoppingBag, badge: 'orders' },
+  { to: '/admin/new-order', label: 'Register an order', icon: Plus },
   { to: '/admin/delivery', label: 'Delivery sheet', icon: Truck },
   { to: '/admin/leads', label: 'Unfinished orders', icon: PhoneCall, badge: 'leads' },
   { to: '/admin/waitlist', label: 'Waiting list', icon: Bell, badge: 'waitlist' },

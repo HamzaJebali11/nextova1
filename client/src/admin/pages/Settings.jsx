@@ -5,6 +5,13 @@ import { optimizeImg } from '../../lib/image'
 
 const inputCls = 'w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-900'
 
+const TRUST = [
+  ['delivery', 'Delivery', 'Delivery time and cost'],
+  ['payment', 'Payment', 'Cash on delivery, can they check first?'],
+  ['returns', 'Returns', 'Return or exchange rule'],
+  ['support', 'Support', 'Confirmation call, WhatsApp support'],
+]
+
 function Field({ label, hint, children }) {
   return (
     <label className="block">
@@ -27,6 +34,8 @@ export default function Settings() {
 
   const set = (k, v) => setS((x) => ({ ...x, [k]: v }))
   const setNested = (k, sub, v) => setS((x) => ({ ...x, [k]: { ...x[k], [sub]: v } }))
+  const setTrust = (key, lang, v) =>
+    setS((x) => ({ ...x, trust: { ...x.trust, [key]: { ...x.trust?.[key], [lang]: v } } }))
 
   async function uploadLogo(e) {
     const file = e.target.files[0]
@@ -62,9 +71,15 @@ export default function Settings() {
           freeDeliveryThreshold: Number(s.freeDeliveryThreshold) || 0,
           shippingCostPerOrder: Number(s.shippingCostPerOrder) || 0,
           salesPopup: s.salesPopup !== false,
+          exitOffer: {
+            enabled: !!s.exitOffer?.enabled,
+            percent: Math.min(50, Math.max(1, Number(s.exitOffer?.percent) || 10)),
+          },
           announcementBar: s.announcementBar,
           social: s.social,
+          trust: s.trust || {},
           pixelId: s.pixelId || '',
+          clarityId: s.clarityId || '',
         },
       })
       setMsg('Saved ✓')
@@ -117,6 +132,26 @@ export default function Settings() {
       </section>
 
       <section className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
+        <div>
+          <h2 className="font-semibold">Trust information <span className="text-xs font-normal text-gray-500">(shown under the buy buttons on every product page)</span></h2>
+          <p className="mt-1 text-xs text-gray-500">
+            Short lines that answer what customers ask before ordering. <b>Write only what is true for your business.</b> Empty lines are not shown.
+            Example for delivery: “Delivery in 1 to 2 days across Qatar”.
+          </p>
+        </div>
+        {TRUST.map(([key, label, hint]) => (
+          <div key={key} className="grid gap-2 sm:grid-cols-2">
+            <Field label={`${label} (English)`} hint={hint}>
+              <input maxLength={120} className={inputCls} value={s.trust?.[key]?.en || ''} onChange={(e) => setTrust(key, 'en', e.target.value)} />
+            </Field>
+            <Field label={`${label} (Arabic)`}>
+              <input dir="rtl" maxLength={120} className={inputCls} value={s.trust?.[key]?.ar || ''} onChange={(e) => setTrust(key, 'ar', e.target.value)} />
+            </Field>
+          </div>
+        ))}
+      </section>
+
+      <section className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
         <h2 className="font-semibold">Delivery</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Delivery fee (QAR)" hint="0 = free delivery">
@@ -128,6 +163,18 @@ export default function Settings() {
         </div>
         <Field label="Shipping cost you pay per delivery (QAR)" hint="What the driver or courier costs you. Used in profit reports. You can adjust it on each order.">
           <input type="number" min="0" className={inputCls} value={s.shippingCostPerOrder ?? 0} onChange={(e) => set('shippingCostPerOrder', e.target.value)} />
+        </Field>
+      </section>
+
+      <section className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
+        <h2 className="font-semibold">“Before you leave” offer</h2>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={!!s.exitOffer?.enabled} onChange={(e) => setNested('exitOffer', 'enabled', e.target.checked)} />
+          Show a discount popup to visitors with something in their cart who are about to leave
+        </label>
+        <Field label="Discount (%)" hint="Once per phone number, valid 24 hours after they claim it. The discount comes out of your profit, so pick a number you can afford (maximum 50).">
+          <input type="number" min="1" max="50" className={inputCls} value={s.exitOffer?.percent ?? 10}
+            onChange={(e) => setNested('exitOffer', 'percent', e.target.value)} />
         </Field>
       </section>
 
@@ -151,7 +198,7 @@ export default function Settings() {
       </section>
 
       <section className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
-        <h2 className="font-semibold">Social and ads</h2>
+        <h2 className="font-semibold">Social and tracking</h2>
         <Field label="Facebook page link">
           <input className={inputCls} value={s.social?.facebook || ''} onChange={(e) => setNested('social', 'facebook', e.target.value)} />
         </Field>
@@ -163,6 +210,9 @@ export default function Settings() {
         </Field>
         <Field label="Meta Pixel ID" hint="For tracking your Facebook ads">
           <input className={inputCls} value={s.pixelId || ''} onChange={(e) => set('pixelId', e.target.value.trim())} />
+        </Field>
+        <Field label="Microsoft Clarity project ID" hint="Free heatmaps and recordings (clarity.microsoft.com). Leave empty to switch it off. Your own visits and everything typed in forms are never recorded.">
+          <input className={inputCls} value={s.clarityId || ''} onChange={(e) => set('clarityId', e.target.value.trim())} />
         </Field>
       </section>
 

@@ -21,6 +21,10 @@ export const extra = {
     chooseEach: 'Choose the option for each item',
     itemN: 'Item {n}',
     sameForAll: 'Same option for all',
+    trustDelivery: 'Delivery',
+    trustPayment: 'Payment',
+    trustReturns: 'Returns',
+    trustSupport: 'Support',
   },
   ar: {
     leadNote: 'إذا لم تكمل الطلب، قد نراسلك عبر واتساب لمساعدتك في إتمامه.',
@@ -44,5 +48,9 @@ export const extra = {
     chooseEach: 'اختر الخيار لكل قطعة',
     itemN: 'القطعة {n}',
     sameForAll: 'نفس الخيار للجميع',
+    trustDelivery: 'التوصيل',
+    trustPayment: 'الدفع',
+    trustReturns: 'الاسترجاع',
+    trustSupport: 'الدعم',
   },
 }

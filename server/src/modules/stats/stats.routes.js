@@ -97,8 +97,7 @@ router.get('/visitors', protect, asyncHandler(async (req, res) => {
       { $limit: 10 },
     ]),
     Order.aggregate([
-      { $match: { createdAt: { $gte: new Date(`${from}T00:00:00+03:00`) } } },
-      {
+      { $match: { source: 'website', createdAt: { $gte: new Date(`${from}T00:00:00+03:00`) } } },      {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: 'Asia/Qatar' } },
           orders: { $sum: 1 },

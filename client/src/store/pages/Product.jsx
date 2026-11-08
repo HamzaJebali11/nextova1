@@ -1,5 +1,6 @@
+
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { Banknote, ShoppingBag, Truck, Zap } from 'lucide-react'
 import { api } from '../../lib/api'
 import { optimizeImg } from '../../lib/image'
@@ -18,6 +19,8 @@ import ProductVideo from '../components/ProductVideo'
 import ProductGallery from '../components/ProductGallery'
 import VariantPicker from '../components/VariantPicker'
 import NotifyMe from '../components/NotifyMe'
+import TrustInfo from '../components/TrustInfo'
+import { TRUST_KEYS } from '../components/trustKeys'
 import { Stars } from '../components/Stars'
 import { WhatsAppIcon } from '../components/icons'
 
@@ -33,12 +36,41 @@ function countBy(list) {
   return out
 }
 
-function ProductView({ product, related }) {
+// One option per unit, never more than the stock of an option
+function fit(variants, current, n) {
+  const next = current.slice(0, n)
+  const used = {}
+
+  next.forEach((name) => {
+    used[name] = (used[name] || 0) + 1
+  })
+
+  const free = (v) => (Number(v.stock) || 0) - (used[v.name] || 0)
+
+  while (next.length < n) {
+    const last = variants.find((v) => v.name === next[next.length - 1])
+
+    const variant =
+      last && free(last) > 0
+        ? last
+        : variants.find((v) => free(v) > 0) || variants[0]
+
+    if (!variant) break
+
+    next.push(variant.name)
+    used[variant.name] = (used[variant.name] || 0) + 1
+  }
+
+  return next
+}
+
+function ProductView({ product, related = [] }) {
   const { t, lang, pick, money, settings } = useStore()
   const { addMany, setOpen } = useCart()
+  const [sp] = useSearchParams()
 
-  const variants = Array.isArray(product.variants) ? product.variants : []
-  const images = Array.isArray(product.images) ? product.images : []
+  const variants = product.variants || []
+  const images = product.images || []
   const packs = (product.packs || []).map(({ qty, price }) => ({
     qty,
     price,
@@ -50,24 +82,34 @@ function ProductView({ product, related }) {
   const sets = product.descriptionImages || {}
   const ownSet = sets[lang] || []
   const otherSet = sets[lang === 'ar' ? 'en' : 'ar'] || []
-
   const descImages = ownSet.length ? ownSet : otherSet
 
   const firstInStock =
-    variants.find((v) => v.stock > 0)?.name ||
+    variants.find((v) => Number(v.stock) > 0)?.name ||
     variants[0]?.name ||
     ''
 
-  const [qty, setQty] = useState(1)
+  const totalStock = variants.length
+    ? variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
+    : Number(product.stock) || 0
+
+  // Initial pack quantity
+  const wanted =
+    Number(sp.get('pack')) ||
+    Number(product.defaultQty) ||
+    1
+
+  const startQty =
+    wanted > 1 && packs.some((p) => Number(p.qty) === wanted)
+      ? Math.min(wanted, 20, Math.max(1, totalStock))
+      : 1
+
+  const [qty, setQty] = useState(startQty)
   const [picks, setPicks] = useState(() =>
-    variants.length ? [firstInStock] : []
+    variants.length ? fit(variants, [], startQty) : []
   )
   const [focus, setFocus] = useState(null)
   const [notifyFor, setNotifyFor] = useState(null)
-
-  const totalStock = variants.length
-    ? variants.reduce((s, v) => s + (Number(v.stock) || 0), 0)
-    : Number(product.stock) || 0
 
   const out = totalStock <= 0
   const maxQty = Math.max(1, Math.min(20, totalStock))
@@ -81,23 +123,22 @@ function ProductView({ product, related }) {
       )
     : []
 
-  // Safely display the selected variant image
+  // Display selected variant image
   function showVariantPicture(name) {
-    if (!name) return
-
     const variant = variants.find((item) => item.name === name)
 
-    const imageUrl =
-      typeof variant?.image === 'string'
-        ? variant.image.trim()
-        : ''
-
-    if (!imageUrl) return
-
-    setFocus({
-      url: imageUrl,
-      n: Date.now(),
-    })
+    if (
+      variant &&
+      typeof variant.image === 'string' &&
+      variant.image.trim() !== ''
+    ) {
+      setFocus({
+        url: variant.image,
+        n: Date.now(),
+      })
+    } else {
+      setFocus(null)
+    }
   }
 
   function changeQty(n) {
@@ -105,43 +146,35 @@ function ProductView({ product, related }) {
 
     setQty(newQty)
 
-    setPicks((previous) =>
-      Array.from(
-        { length: newQty },
-        (_, i) =>
-          previous[i] ??
-          previous[previous.length - 1] ??
-          firstInStock
-      )
-    )
+    if (variants.length) {
+      setPicks((current) => fit(variants, current, newQty))
+    }
   }
 
   function pickVariant(i, name) {
     setNotifyFor(null)
 
-    setPicks((previous) =>
-      Array.from({ length: safeQty }, (_, j) =>
-        j === i ? name : previous[j] || firstInStock
-      )
-    )
+    setPicks((current) => {
+      const next = [...current]
+      next[i] = name
+      return next
+    })
 
     showVariantPicture(name)
   }
 
   function sameForAll(name) {
-    setPicks(Array.from({ length: safeQty }, () => name))
-    setNotifyFor(null)
-
+    setPicks(unitPicks.map(() => name))
     showVariantPicture(name)
+    setNotifyFor(null)
   }
 
   // Products being purchased
   const lines = variants.length
     ? Object.entries(countBy(unitPicks)).map(([name, n]) => {
         const variant = variants.find((v) => v.name === name)
-
-        const own = Number(variant?.price) || 0
-        const basePrice = own || Number(product.price) || 0
+        const ownPrice = variant ? Number(variant.price) || 0 : 0
+        const basePrice = ownPrice || Number(product.price) || 0
 
         return {
           productId: product._id,
@@ -152,8 +185,8 @@ function ProductView({ product, related }) {
           qty: n,
           base: basePrice,
           price: basePrice,
-          packs: own ? [] : packs,
-          poolable: !own,
+          packs: ownPrice ? [] : packs,
+          poolable: !ownPrice,
           gift: product.gift || null,
         }
       })
@@ -164,8 +197,8 @@ function ProductView({ product, related }) {
           name: product.name,
           image: images[0]?.url,
           qty: safeQty,
-          base: Number(product.price) || 0,
-          price: Number(product.price) || 0,
+          base: product.price,
+          price: product.price,
           packs,
           poolable: true,
           gift: product.gift || null,
@@ -175,17 +208,17 @@ function ProductView({ product, related }) {
   const priced = repriceCart(lines)
 
   const total = r2(
-    priced.reduce((s, line) => s + line.price * line.qty, 0)
+    priced.reduce((sum, line) => sum + line.price * line.qty, 0)
   )
 
   const fullTotal = r2(
-    priced.reduce((s, line) => s + line.base * line.qty, 0)
+    priced.reduce((sum, line) => sum + line.base * line.qty, 0)
   )
 
   const saved = r2(fullTotal - total)
 
   const gifts = priced.reduce(
-    (s, line) => s + (line.giftQty || 0),
+    (sum, line) => sum + (line.giftQty || 0),
     0
   )
 
@@ -194,7 +227,7 @@ function ProductView({ product, related }) {
   )
 
   const displayBase =
-    Number(firstVariant?.price) || Number(product.price) || 0
+    firstVariant?.price || product.price
 
   const off =
     product.compareAtPrice > displayBase
@@ -203,12 +236,10 @@ function ProductView({ product, related }) {
         )
       : 0
 
-  // Gallery images
+  // Product gallery images plus variant images
   const extra = [
     ...new Set(
-      variants
-        .map((v) => v.image)
-        .filter((url) => typeof url === 'string' && url.trim())
+      variants.map((v) => v.image).filter(Boolean)
     ),
   ].filter(
     (url) => !images.some((image) => image.url === url)
@@ -219,16 +250,22 @@ function ProductView({ product, related }) {
     ...extra.map((url) => ({ url })),
   ]
 
+  const hasTrust = TRUST_KEYS.some((key) =>
+    pick(settings.trust?.[key])
+  )
+
+  // Facebook Pixel: ViewContent
   useEffect(() => {
     track('ViewContent', {
       content_ids: [product._id],
-      content_name: product.name.en,
+      content_name: product.name?.en || '',
       content_type: 'product',
       value: product.price,
       currency: 'QAR',
     })
-  }, [product._id, product.name.en, product.price])
+  }, [product._id, product.name, product.price])
 
+  // Browser title
   useEffect(() => {
     const store = settings.storeName || 'Nextova'
 
@@ -244,7 +281,7 @@ function ProductView({ product, related }) {
 
     track('AddToCart', {
       content_ids: [product._id],
-      content_name: product.name.en,
+      content_name: product.name?.en || '',
       content_type: 'product',
       value: total,
       currency: 'QAR',
@@ -271,7 +308,6 @@ function ProductView({ product, related }) {
       {/* Main section */}
       <div className="mx-auto max-w-7xl px-4 pt-8">
         <div className="grid gap-8 md:grid-cols-2 lg:gap-12">
-
           {/* Product gallery */}
           <div className="md:sticky md:top-28 md:self-start">
             <ProductGallery
@@ -309,7 +345,6 @@ function ProductView({ product, related }) {
                 className="mt-2 flex items-center gap-2 text-sm text-gray-600 hover:text-emerald-600"
               >
                 <Stars value={product.ratingAvg} size={18} />
-
                 <span>
                   {product.ratingAvg} · {product.ratingCount}{' '}
                   {t('reviewsCount')}
@@ -347,6 +382,16 @@ function ProductView({ product, related }) {
                   : t('inStockLabel')}
             </p>
 
+            {!out && (
+              <PackOffers
+                base={product.price}
+                packs={packs}
+                qty={safeQty}
+                max={maxQty}
+                onPick={changeQty}
+              />
+            )}
+
             {/* Variant selection */}
             {variants.length > 0 && !out && (
               <VariantPicker
@@ -358,25 +403,19 @@ function ProductView({ product, related }) {
               />
             )}
 
-            {/* Sold out notifications */}
-            {out && <NotifyMe key="all" productId={product._id} />}
+            {/* Sold-out notifications */}
+            {out && (
+              <NotifyMe
+                key="all"
+                productId={product._id}
+              />
+            )}
 
             {!out && notifyFor && (
               <NotifyMe
                 key={notifyFor}
                 productId={product._id}
                 variantName={notifyFor}
-              />
-            )}
-
-            {/* Pack offers */}
-            {!out && (
-              <PackOffers
-                base={product.price}
-                packs={packs}
-                qty={safeQty}
-                max={maxQty}
-                onPick={changeQty}
               />
             )}
 
@@ -487,23 +526,27 @@ function ProductView({ product, related }) {
               )}
             </div>
 
-            {/* Service benefits */}
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs text-gray-600">
-              <div className="rounded-2xl bg-gray-50 p-3">
-                <Banknote size={20} className="mx-auto mb-1 text-emerald-600" />
-                {t('codTitle')}
-              </div>
+            {/* Trust information */}
+            {hasTrust ? (
+              <TrustInfo />
+            ) : (
+              <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs text-gray-600">
+                <div className="rounded-2xl bg-gray-50 p-3">
+                  <Banknote size={20} className="mx-auto mb-1 text-emerald-600" />
+                  {t('codTitle')}
+                </div>
 
-              <div className="rounded-2xl bg-gray-50 p-3">
-                <Truck size={20} className="mx-auto mb-1 text-emerald-600" />
-                {t('fastTitle')}
-              </div>
+                <div className="rounded-2xl bg-gray-50 p-3">
+                  <Truck size={20} className="mx-auto mb-1 text-emerald-600" />
+                  {t('fastTitle')}
+                </div>
 
-              <div className="rounded-2xl bg-gray-50 p-3">
-                <WhatsAppIcon size={20} className="mx-auto mb-1 text-emerald-600" />
-                {t('supportTitle')}
+                <div className="rounded-2xl bg-gray-50 p-3">
+                  <WhatsAppIcon size={20} className="mx-auto mb-1 text-emerald-600" />
+                  {t('supportTitle')}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Order form */}
             {!out && (
@@ -535,7 +578,7 @@ function ProductView({ product, related }) {
         </div>
       </div>
 
-      {/* Product video */}
+      {/* Optional product video */}
       <ProductVideo video={product.video} />
 
       {/* Description pictures */}
@@ -548,7 +591,7 @@ function ProductView({ product, related }) {
           <div>
             {descImages.map((im, i) => (
               <img
-                key={im.url}
+                key={im.url || i}
                 src={optimizeImg(im.url, 1920)}
                 alt={`${pick(product.name)} ${i + 1}`}
                 loading="lazy"
@@ -560,7 +603,7 @@ function ProductView({ product, related }) {
         </section>
       )}
 
-      {/* Additional product sections */}
+      {/* Additional product information */}
       <div className="mx-auto max-w-7xl px-4 pb-28 md:pb-8">
         <ProductCompare rows={product.comparison} />
 
@@ -574,12 +617,15 @@ function ProductView({ product, related }) {
               {t('related')}
             </h2>
 
-            <ProductGrid items={related} loading={false} />
+            <ProductGrid
+              items={related}
+              loading={false}
+            />
           </section>
         )}
       </div>
 
-      {/* Sticky mobile order bar */}
+      {/* Sticky order bar on phones */}
       {!out && (
         <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 border-t bg-white/95 p-3 backdrop-blur md:hidden">
           <div className="leading-tight">
@@ -608,7 +654,12 @@ export default function Product() {
   const { slug } = useParams()
   const { t } = useStore()
 
-  const [state, setState] = useState({ slug: null })
+  const [state, setState] = useState({
+    slug: null,
+    product: null,
+    related: [],
+    missing: false,
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -616,9 +667,11 @@ export default function Product() {
     api(`/products/${slug}`)
       .then((data) => {
         if (!cancelled) {
+          // Preserve the original API response structure
           setState({
             slug,
             ...data,
+            missing: false,
           })
         }
       })
@@ -626,6 +679,8 @@ export default function Product() {
         if (!cancelled) {
           setState({
             slug,
+            product: null,
+            related: [],
             missing: true,
           })
         }

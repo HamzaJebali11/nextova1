@@ -25,6 +25,8 @@ router.get('/', asyncHandler(async (req, res) => {
     announcementBar: s.announcementBar,
     social: s.social,
     pixelId: s.pixelId,
+        trust: s.trust,
+        clarityId: s.clarityId,
   })
 }))
 

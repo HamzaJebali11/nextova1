@@ -10,6 +10,8 @@ import WhatsAppButton from './components/WhatsAppButton'
 import CartDrawer from './components/CartDrawer'
 import PixelTracker from './components/PixelTracker'
 import RecentOrderPopup from './components/RecentOrderPopup'
+import ExitOffer from './components/ExitOffer'
+import ClarityLoader from './components/ClarityLoader'
 
 export default function StoreLayout() {
   const { pathname } = useLocation()
@@ -41,6 +43,8 @@ export default function StoreLayout() {
       <RecentOrderPopup />
       <CartDrawer />
       <PixelTracker />
+      <ExitOffer />
+      <ClarityLoader />
     </div>
   )
 }

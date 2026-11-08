@@ -18,6 +18,9 @@ export default function ProductOffers({ f, set, selfId }) {
   const setGift = (patch) => set('freeGift', { ...gift, ...patch })
   const candidates = products.filter((p) => p._id !== selfId && p.isActive && !(p.variants?.length))
 
+  const packQtys = [...new Set(f.packs.map((p) => Number(p.qty)).filter((q) => q >= 2 && q <= 20))].sort((a, b) => a - b)
+  const chosen = packQtys.includes(Number(f.defaultQty)) ? Number(f.defaultQty) : 1
+
   return (
     <>
       <section>
@@ -31,6 +34,7 @@ export default function ProductOffers({ f, set, selfId }) {
           The normal price is "1 pack" automatically. Enter the <b>total price</b> for 2, 3… units. Customers always get the cheapest mix of packs.
           Packs do not apply to a variant that has its own price.
         </p>
+
         {f.packs.map((x, i) => {
           const full = base * (Number(x.qty) || 0)
           const save = full - (Number(x.price) || 0)
@@ -58,6 +62,24 @@ export default function ProductOffers({ f, set, selfId }) {
             </div>
           )
         })}
+
+        {packQtys.length > 0 && (
+          <div className="rounded-xl bg-emerald-50 p-3">
+            <div className="mb-2 text-sm font-semibold">Preselected when a visitor opens the page</div>
+            <div className="flex flex-wrap gap-3 text-sm">
+              {[1, ...packQtys].map((q) => (
+                <label key={q} className="flex items-center gap-2">
+                  <input type="radio" name="defaultQty" checked={chosen === q} onChange={() => set('defaultQty', q)} />
+                  {q === 1 ? '1 pack (nothing preselected)' : `${q} packs`}
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-gray-600">
+              The customer can still change it. To choose it <b>per ad</b>, add <code>?pack=2</code> to the end of the product link
+              (for the Arabic page: <code>?lang=ar&amp;pack=2</code>). The link wins over this setting.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl bg-gray-50 p-4">

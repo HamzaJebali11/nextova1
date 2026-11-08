@@ -44,6 +44,7 @@ const productSchema = new mongoose.Schema({
     minQty: { type: Number, default: 1, min: 1 },
     qty: { type: Number, default: 1, min: 1 },
   },
+    defaultQty: { type: Number, default: 1, min: 1, max: 20 }, // pack preselected when the page opens (1 = none)
 
   attributes: { type: Map, of: String },
   tags: [String],

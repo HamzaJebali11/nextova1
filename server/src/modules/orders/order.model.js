@@ -38,6 +38,7 @@ const orderSchema = new mongoose.Schema({
 
   shippingCost: { type: Number, default: 0 },   // what delivery costs YOU
   deliveredAt: Date,
+  stockTaken: { type: Boolean, default: true }, // false for past sales you enter by hand
 
   // the automatic WhatsApp message: sent | delivered | read | failed
   whatsapp: {

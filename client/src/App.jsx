@@ -5,6 +5,7 @@ import AdminLayout from './admin/AdminLayout'
 import Login from './admin/pages/Login'
 import Dashboard from './admin/pages/Dashboard'
 import Orders from './admin/pages/Orders'
+import NewOrder from './admin/pages/NewOrder'
 import DeliverySheet from './admin/pages/DeliverySheet'
 import Leads from './admin/pages/Leads'
 import Waitlist from './admin/pages/Waitlist'
@@ -22,6 +23,7 @@ import Product from './store/pages/Product'
 import Checkout from './store/pages/Checkout'
 import OrderSuccess from './store/pages/OrderSuccess'
 import Page from './store/pages/Page'
+import Business from './admin/pages/Business'
 
 export default function App() {
   return (
@@ -40,6 +42,7 @@ export default function App() {
         <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="orders" element={<Orders />} />
+          <Route path="new-order" element={<NewOrder />} />
           <Route path="delivery" element={<DeliverySheet />} />
           <Route path="leads" element={<Leads />} />
           <Route path="waitlist" element={<Waitlist />} />
@@ -49,6 +52,7 @@ export default function App() {
           <Route path="ads" element={<AdSpend />} />
           <Route path="visitors" element={<Visitors />} />
           <Route path="pages" element={<Pages />} />
+                    <Route path="business" element={<Business />} />
           <Route path="settings" element={<Settings />} />
         </Route>
 
