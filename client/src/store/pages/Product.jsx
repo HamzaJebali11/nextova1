@@ -75,7 +75,7 @@ function ProductView({ product, related = [] }) {
     qty,
     price,
   }))
-
+  const packOffers = product.packs || [] // with badges, only for display
   const formRef = useRef(null)
 
   // Description pictures
@@ -382,15 +382,7 @@ function ProductView({ product, related = [] }) {
                   : t('inStockLabel')}
             </p>
 
-            {!out && (
-              <PackOffers
-                base={product.price}
-                packs={packs}
-                qty={safeQty}
-                max={maxQty}
-                onPick={changeQty}
-              />
-            )}
+                        {!out && <PackOffers base={product.price} packs={packOffers} qty={safeQty} max={maxQty} onPick={changeQty} />}
 
             {/* Variant selection */}
             {variants.length > 0 && !out && (
