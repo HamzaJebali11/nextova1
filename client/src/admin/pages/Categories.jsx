@@ -125,7 +125,7 @@ export default function Categories() {
           </label>
           <div className="flex gap-2">
             {editId && <button type="button" onClick={reset} className="rounded-lg border px-4 py-2 hover:bg-gray-100">Cancel</button>}
-            <button disabled={uploading} className="rounded-lg bg-gray-900 px-4 py-2 text-white hover:bg-gray-700 disabled:opacity-60">{editId ? 'Save' : 'Add'}</button>
+            <button disabled={uploading} className="rounded-lg px-4 py-2 bg-accent font-bold text-white hover:bg-accent-hover disabled:opacity-60">{editId ? 'Save' : 'Add'}</button>
           </div>
         </div>
       </form>

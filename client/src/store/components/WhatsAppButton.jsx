@@ -20,7 +20,7 @@ export default function WhatsAppButton() {
       <span className="nx-glow relative grid h-16 w-16 place-items-center rounded-full bg-[#25D366] text-white">
         <WhatsAppIcon size={34} />
       </span>
-      <span className="pointer-events-none absolute end-full top-1/2 me-3 -translate-y-1/2 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-sm font-medium text-gray-800 opacity-0 shadow-lg transition group-hover:opacity-100">
+      <span className="pointer-events-none absolute end-full top-1/2 me-3 -translate-y-1/2 whitespace-nowrap rounded-full bg-white px-3 py-1.5 text-sm font-medium text-gray-800 opacity-0 shadow-e2 transition group-hover:opacity-100">
         {t('chatWhatsapp')}
       </span>
     </motion.a>

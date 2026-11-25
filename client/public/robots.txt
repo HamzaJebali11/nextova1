@@ -1,3 +1,7 @@
 User-agent: *
 Disallow: /admin
+Disallow: /checkout
+Disallow: /order-success
 Allow: /
+
+Sitemap: https://api.nextova.store/api/v1/sitemap.xml

@@ -2,9 +2,10 @@ import { api } from '../../lib/api'
 import { money } from '../../lib/constants'
 
 export default function CostsPanel({ order, onChanged }) {
-  const cogs = order.items.reduce((s, i) => s + (i.cost || 0) * i.qty, 0)
+  // today's real cost per unit (base cost + product ads per unit); the cost saved on the order if the product was deleted
+  const cogs = Math.round(order.items.reduce((s, i) => s + (i.realCost ?? i.cost ?? 0) * i.qty, 0) * 100) / 100
   const ship = order.shippingCost || 0
-  const profit = order.total - cogs - ship
+  const profit = Math.round((order.total - cogs - ship) * 100) / 100
 
   async function save(v) {
     try {
@@ -19,7 +20,7 @@ export default function CostsPanel({ order, onChanged }) {
       <h3 className="mb-2 font-semibold">Profit on this order</h3>
       <div className="space-y-1">
         <div className="flex justify-between"><span>Revenue (incl. delivery fee)</span><span>{money(order.total)}</span></div>
-        <div className="flex justify-between"><span>Product cost</span><span>− {money(cogs)}</span></div>
+        <div className="flex justify-between"><span>Product real cost (incl. product ads)</span><span>− {money(cogs)}</span></div>
         <div className="flex items-center justify-between">
           <span>Shipping cost (what you pay)</span>
           <input key={ship} type="number" min="0" defaultValue={ship}
@@ -27,8 +28,8 @@ export default function CostsPanel({ order, onChanged }) {
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
             className="w-20 rounded-lg border px-2 py-1 text-end outline-none focus:ring-2 focus:ring-gray-900" />
         </div>
-        <div className={`flex justify-between border-t pt-2 font-bold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          <span>Profit before ads</span><span>{money(profit)}</span>
+        <div className={`flex justify-between border-t pt-2 font-bold ${profit >= 0 ? 'text-ink' : 'text-red-600'}`}>
+          <span>Profit (before general ads)</span><span>{money(profit)}</span>
         </div>
       </div>
     </section>

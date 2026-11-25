@@ -42,7 +42,7 @@ export default function ReviewCarousel({ items, showProduct = false }) {
   const fmt = (d) =>
     new Date(d).toLocaleDateString(lang === 'ar' ? 'ar-QA-u-nu-latn' : 'en-GB', { dateStyle: 'medium' })
 
-  const arrow = 'grid h-10 w-10 place-items-center rounded-full border bg-white transition hover:bg-gray-900 hover:text-white'
+  const arrow = 'grid h-11 w-11 place-items-center rounded-full border bg-white transition hover:bg-gray-900 hover:text-white'
 
   return (
     <div>
@@ -64,7 +64,7 @@ export default function ReviewCarousel({ items, showProduct = false }) {
             className="flex w-[85%] shrink-0 snap-start flex-col overflow-hidden rounded-3xl border bg-white sm:w-[calc(50%_-_0.5rem)] lg:w-[calc(33.333%_-_0.67rem)]">
             {r.images?.[0] && (
               <button onClick={() => setZoom(r.images[0].url)} className="block">
-                <img src={optimizeImg(r.images[0].url, 600)} alt="" className="aspect-[4/3] w-full object-cover transition hover:opacity-90" />
+                <img src={optimizeImg(r.images[0].url, 600)} alt="" loading="lazy" decoding="async" className="aspect-[4/3] w-full object-cover transition hover:opacity-90" />
               </button>
             )}
             <div className="flex flex-1 flex-col p-5">
@@ -88,7 +88,7 @@ export default function ReviewCarousel({ items, showProduct = false }) {
                     </div>
                   )}
                   {showProduct && r.product?.slug && (
-                    <Link to={`/product/${r.product.slug}`} className="block truncate text-xs text-emerald-600 hover:underline">
+                    <Link to={`/product/${r.product.slug}`} className="flex min-h-11 items-center truncate text-xs text-gray-600 hover:underline">
                       {pick(r.product.name)}
                     </Link>
                   )}

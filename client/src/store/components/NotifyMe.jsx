@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { isValidQatarPhone, toLocalDigits } from '../../lib/phone'
 import { Bell } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useStore } from '../storeContext'
+import { friendlyError } from '../friendlyError'
 
 const T = {
   en: {
@@ -12,7 +14,7 @@ const T = {
     busy: 'Saving…',
     done: 'Done! We will message you on WhatsApp when it is back.',
     now: 'Good news: it is available now! Refresh the page to order.',
-    err: 'Enter a valid Qatar mobile number (8 digits)',
+    err: 'Please enter a valid Qatar mobile number, for example 5xxxxxxx',
   },
   ar: {
     title: 'نفدت الكمية حاليًا',
@@ -22,12 +24,12 @@ const T = {
     busy: 'جارٍ الحفظ…',
     done: 'تم! سنراسلك عبر واتساب عند توفر المنتج.',
     now: 'خبر سار: المنتج متوفر الآن! حدّث الصفحة لتطلبه.',
-    err: 'أدخل رقم جوال قطري صحيح (8 أرقام)',
+    err: 'يرجى إدخال رقم جوال قطري صحيح، مثال: 5xxxxxxx',
   },
 }
 
 export default function NotifyMe({ productId, variantName }) {
-  const { lang } = useStore()
+  const { lang, t } = useStore()
   const x = T[lang] || T.en
   const [phone, setPhone] = useState('')
   const [website, setWebsite] = useState('')
@@ -37,7 +39,7 @@ export default function NotifyMe({ productId, variantName }) {
   async function submit(e) {
     e.preventDefault()
     setError('')
-    if (!/^[3567]\d{7}$/.test(phone)) return setError(x.err)
+    if (!isValidQatarPhone(phone)) return setError(x.err)
     setState('busy')
     try {
       const res = await api('/alerts', {
@@ -47,33 +49,29 @@ export default function NotifyMe({ productId, variantName }) {
       setState(res?.available ? 'now' : 'done')
     } catch (err) {
       setState('idle')
-      setError(err.details?.map((d) => d.message).join(' · ') || err.message)
+      setError(friendlyError(err, t, lang))
     }
   }
 
   return (
-    <div className="relative mt-5 rounded-3xl border-2 border-dashed border-amber-300 bg-amber-50 p-5">
-      <div className="mb-1 flex items-center gap-2 font-bold text-amber-900">
+    <div className="relative rounded-2xl border border-line bg-white p-4 shadow-e1 md:p-6">
+      <div className="mb-1 flex items-center gap-2 font-bold text-ink">
         <Bell size={18} /> {x.title}
       </div>
 
       {state === 'done' || state === 'now' ? (
-        <p className="text-sm font-medium text-green-700">{state === 'done' ? x.done : x.now}</p>
+        <p className="text-sm font-medium text-ink">{state === 'done' ? x.done : x.now}</p>
       ) : (
         <form onSubmit={submit} noValidate>
-          <p className="mb-3 text-sm text-amber-900">{x.sub}</p>
+          <p className="mb-3 text-sm text-ink">{x.sub}</p>
           <input tabIndex={-1} autoComplete="off" aria-hidden="true" value={website}
             onChange={(e) => setWebsite(e.target.value)} className="absolute -left-[9999px] h-0 w-0 opacity-0" />
           <div className="flex gap-2">
             <div className="flex flex-1" dir="ltr">
               <span className="grid place-items-center rounded-s-xl border border-e-0 bg-white px-3 text-sm text-gray-600">+974</span>
-              <input type="tel" inputMode="numeric" autoComplete="tel-national" value={phone} placeholder={x.phone}
-                onChange={(e) => {
-                  let d = e.target.value.replace(/\D/g, '')
-                  if (d.startsWith('974') && d.length > 8) d = d.slice(3)
-                  setPhone(d.slice(0, 8))
-                }}
-                className="w-full rounded-e-xl border bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-amber-300" />
+              <input type="tel" inputMode="tel" autoComplete="tel" dir="ltr" value={phone} placeholder={x.phone} aria-label={x.phone}
+                onChange={(e) => setPhone(toLocalDigits(e.target.value))}
+                className="w-full rounded-e-xl border bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-gray-300" />
             </div>
             <button disabled={state === 'busy'}
               className="rounded-xl bg-gray-900 px-5 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-60">

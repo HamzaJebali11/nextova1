@@ -6,6 +6,10 @@ import { asyncHandler } from '../../utils/asyncHandler.js'
 import { httpError } from '../../utils/httpError.js'
 import { protect } from '../../middleware/auth.js'
 import { reserveStock, releaseStock } from '../../utils/stock.js'
+import { liveEvent } from '../events/event.routes.js'
+import { normalizeQatarPhone, PHONE_MESSAGE } from '../../utils/phone.js'
+import { orderFlags, isFlagged } from '../../utils/orderFlags.js'
+import Settings from '../settings/settings.model.js'
 
 const router = Router()
 router.use(protect)
@@ -25,10 +29,7 @@ const itemSchema = z.object({
 const schema = z.object({
   customer: z.object({
     name: z.string().trim().min(2).max(80),
-    phone: z.string().trim()
-      .transform((s) => s.replace(/[\s-]/g, ''))
-      .refine((s) => s === '' || /^(?:\+?974)?[3567]\d{7}$/.test(s), 'Enter a valid Qatar mobile number')
-      .transform((s) => (s ? '+974' + s.slice(-8) : 'N/A')),
+    phone: z.string().trim().max(40), // checked below (the admin can override the Qatar check)
     area: z.string().trim().max(80).optional(),
     zone: code,
     street: code,
@@ -45,12 +46,22 @@ const schema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), // set for a past sale (Qatar date)
   takeStock: z.boolean().default(true),
   adminNotes: z.string().trim().max(500).optional(),
+  phoneOverride: z.boolean().default(false), // keep a number that does not pass the Qatar check
 })
 
 // register an order you took on WhatsApp / Messenger / phone, or a past sale
 router.post('/', asyncHandler(async (req, res) => {
   const data = schema.parse(req.body)
   const past = !!data.date
+  // phone: normalised to +974XXXXXXXX; anything else only when you tick "use this number anyway"
+  const typed = data.customer.phone
+  if (!typed) data.customer.phone = 'N/A'
+  else {
+    const n = normalizeQatarPhone(typed)
+    if (n) data.customer.phone = n
+    else if (data.phoneOverride) data.customer.phone = typed.replace(/[^\d+]/g, '').slice(0, 20) || 'N/A'
+    else throw httpError(400, `${PHONE_MESSAGE} (or tick "Use this number anyway")`)
+  }
   if (!past && data.customer.phone === 'N/A') throw httpError(400, 'Enter the customer mobile number')
 
   const closed = CLOSED.includes(data.status)
@@ -95,7 +106,15 @@ router.post('/', asyncHandler(async (req, res) => {
     const discount = Math.min(data.discount, subtotal)
     const when = past ? new Date(`${data.date}T12:00:00+03:00`) : null
 
+    // orders taken now (not past sales) are labelled with the live sales event, if any (display only)
+    const live = past ? null : await liveEvent().catch(() => null)
+    // same flags as website orders (past sales are not checked); "Needs confirmation" only when you left the status on New
+    const flags = past || data.customer.phone === 'N/A' ? {} : await orderFlags(data.customer.phone).catch(() => ({}))
+    const settings = await Settings.findOne({ key: 'main' }).select('holdFlagged').lean()
+    const hold = !past && data.status === 'new' && !!settings?.holdFlagged && isFlagged(flags)
     const order = new Order({
+      flags: { ...flags, held: hold },
+      event: live ? { id: live._id, name: live.name?.en } : undefined,
       customer: data.customer,
       items: lines,
       subtotal,
@@ -103,7 +122,7 @@ router.post('/', asyncHandler(async (req, res) => {
       deliveryFee: data.deliveryFee,
       total: r2(subtotal - discount + data.deliveryFee),
       shippingCost: data.shippingCost,
-      status: data.status,
+      status: hold ? 'on_hold' : data.status,
       source: data.source,
       adminNotes: data.adminNotes,
       stockTaken: takeStock,
@@ -120,7 +139,7 @@ router.post('/', asyncHandler(async (req, res) => {
       for (const l of lines) await Product.updateOne({ _id: l.product }, { $inc: { soldCount: l.qty } })
     }
 
-    res.status(201).json({ id: order._id, orderNumber: order.orderNumber, total: order.total })
+    res.status(201).json({ id: order._id, orderNumber: order.orderNumber, total: order.total, flags: order.flags, status: order.status })
   } catch (err) {
     for (const r of reserved) await releaseStock(r.id, r.variantName, r.qty)
     throw err

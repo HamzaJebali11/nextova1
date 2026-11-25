@@ -12,6 +12,7 @@ export async function sendOrderWhatsApp(order) {
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID
   const template = process.env.WHATSAPP_TEMPLATE_NAME
   if (!token || !phoneId || !template) return // not set up yet: skip quietly
+  if (process.env.WHATSAPP_DRY_RUN === '1') return console.log(`[WhatsApp not sent: WHATSAPP_DRY_RUN] order ${order.orderNumber}`)
 
   const version = process.env.WHATSAPP_API_VERSION || 'v23.0'
   const language = process.env.WHATSAPP_TEMPLATE_LANG || 'en'

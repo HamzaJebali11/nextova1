@@ -1,16 +1,26 @@
+import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ShoppingBag, Trash2, X } from 'lucide-react'
 import { optimizeImg } from '../../lib/image'
+import { useDialogFocus } from '../../lib/useDialogFocus'
 import { useStore } from '../storeContext'
 import { useCart } from '../../cart/cartContext'
 import QtyStepper from './QtyStepper'
-import CartUpsell from './CartUpsell'
+import Recommendations from './Recommendations'
 
 export default function CartDrawer() {
   const { t, lang, pick, money, settings } = useStore()
   const { items, open, setOpen, setQty, remove, subtotal } = useCart()
   const navigate = useNavigate()
+  const panel = useRef(null)
+  useDialogFocus(panel, open)
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, setOpen])
 
   const freeFrom = Number(settings.freeDeliveryThreshold) || 0
   const left = Math.max(0, freeFrom - subtotal)
@@ -26,13 +36,14 @@ export default function CartDrawer() {
       {open && (
         <motion.div className="fixed inset-0 z-50 flex justify-end bg-black/40"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)}>
-          <motion.aside onClick={(e) => e.stopPropagation()}
-            className="flex h-full w-full max-w-md flex-col bg-white shadow-xl"
+          <motion.aside ref={panel} role="dialog" aria-modal="true" aria-label={t('yourCart')} tabIndex={-1}
+            onClick={(e) => e.stopPropagation()}
+            className="flex h-full w-full max-w-md flex-col border-s border-line bg-white shadow-e3 outline-none"
             initial={{ x: offscreen }} animate={{ x: 0 }} exit={{ x: offscreen }}
             transition={{ type: 'tween', duration: 0.25 }}>
             <div className="flex items-center justify-between border-b p-4">
               <h2 className="flex items-center gap-2 text-lg font-bold"><ShoppingBag size={20} /> {t('yourCart')}</h2>
-              <button onClick={() => setOpen(false)} className="rounded-full p-2 hover:bg-gray-100"><X size={20} /></button>
+              <button onClick={() => setOpen(false)} aria-label={t('close')} className="grid h-11 w-11 place-items-center rounded-full hover:bg-quiet"><X size={20} /></button>
             </div>
 
             {items.length === 0 ? (
@@ -60,7 +71,7 @@ export default function CartDrawer() {
                 <ul className="flex-1 divide-y overflow-y-auto px-4">
                   {items.map((i) => (
                     <li key={i.key} className="flex gap-3 py-4">
-                      <img src={optimizeImg(i.image, 160)} alt="" className="h-20 w-20 shrink-0 rounded-xl bg-gray-100 object-cover" />
+                      <img src={optimizeImg(i.image, 160)} alt="" className="h-20 w-20 shrink-0 rounded-xl bg-quiet object-cover" />
                       <div className="min-w-0 flex-1">
                         <div className="line-clamp-2 text-sm font-medium">{pick(i.name)}</div>
                         {i.variantName && <div className="text-sm font-semibold text-emerald-700">{i.variantName}</div>}
@@ -73,7 +84,7 @@ export default function CartDrawer() {
                         {i.giftQty > 0 && (
                           <div className="mt-2 flex items-center gap-2 rounded-xl bg-emerald-50 p-2 text-xs text-emerald-800">
                             {i.gift.image && (
-                              <img src={optimizeImg(i.gift.image, 80)} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                              <img src={optimizeImg(i.gift.image, 80)} alt="" width={32} height={32} className="h-8 w-8 rounded-lg object-cover" />
                             )}
                             <span>🎁 {pick(i.gift.name)} × {i.giftQty} · <b>{t('freeCaps')}</b></span>
                           </div>
@@ -83,7 +94,7 @@ export default function CartDrawer() {
                   ))}
                 </ul>
 
-                <CartUpsell />
+                <Recommendations exclude={items.map((i) => i.productId)} className="border-t px-4 py-3" />
 
                 <div className="border-t p-4">
                   <div className="mb-3 flex justify-between font-semibold">

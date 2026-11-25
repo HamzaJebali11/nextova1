@@ -5,6 +5,7 @@ import Lead from '../leads/lead.model.js'
 import Product from '../products/product.model.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { protect } from '../../middleware/auth.js'
+import { realCostMap, lineCost } from '../../utils/realCost.js'
 
 const router = Router()
 
@@ -18,10 +19,15 @@ const r2 = (n) => Math.round(n * 100) / 100
 const pct = (a, b) => (b ? r1((a / b) * 100) : null)
 const FAIL = ['returned', 'cancelled']
 
-function summarize(list) {
-  const s = { placed: list.length, delivered: 0, returned: 0, cancelled: 0, open: 0, revenue: 0 }
+// profit of a delivered order = total - units x real cost per unit - shipping cost
+// (real cost per unit = base cost + product ad spend / units purchased, see utils/realCost.js)
+const orderProfit = (o, costs) =>
+  (o.total || 0) - (o.items || []).reduce((sum, it) => sum + lineCost(it, costs) * (it.qty || 0), 0) - (o.shippingCost || 0)
+
+function summarize(list, costs = new Map()) {
+  const s = { placed: list.length, delivered: 0, returned: 0, cancelled: 0, open: 0, revenue: 0, profit: 0 }
   for (const o of list) {
-    if (o.status === 'delivered') { s.delivered += 1; s.revenue += o.total || 0 }
+    if (o.status === 'delivered') { s.delivered += 1; s.revenue += o.total || 0; s.profit += orderProfit(o, costs) }
     else if (o.status === 'returned') s.returned += 1
     else if (o.status === 'cancelled') s.cancelled += 1
     else s.open += 1
@@ -30,12 +36,13 @@ function summarize(list) {
   return {
     ...s,
     revenue: r2(s.revenue),
+    profit: r2(s.profit),
     deliveryRate: pct(s.delivered, closed),
     failRate: pct(s.returned + s.cancelled, closed),
   }
 }
 
-function groupBy(orders, keyOf, limit = 15) {
+function groupBy(orders, keyOf, limit = 15, costs = new Map()) {
   const map = new Map()
   for (const o of orders) {
     const k = keyOf(o)
@@ -43,7 +50,7 @@ function groupBy(orders, keyOf, limit = 15) {
     map.get(k).push(o)
   }
   return [...map]
-    .map(([name, list]) => ({ name, ...summarize(list) }))
+    .map(([name, list]) => ({ name, ...summarize(list, costs) }))
     .sort((a, b) => b.placed - a.placed)
     .slice(0, limit)
 }
@@ -59,8 +66,9 @@ router.get('/', protect, asyncHandler(async (req, res) => {
   const from = new Date(`${fromKey}T00:00:00+03:00`)
 
   const orders = await Order.find({ createdAt: { $gte: from } })
-    .select('status source utm customer.area customer.phone total createdAt deliveredAt')
+    .select('status source utm attribution customer.area customer.phone total shippingCost items.product items.qty items.cost createdAt deliveredAt')
     .limit(20000).lean()
+  const costs = await realCostMap(orders.flatMap((o) => (o.items || []).map((i) => i.product)).filter(Boolean))
 
   const [visitors, viewers, unfinished] = await Promise.all([
     uniqueVisitors({ day: { $gte: fromKey } }),
@@ -93,7 +101,7 @@ router.get('/', protect, asyncHandler(async (req, res) => {
   }
 
   const campaignOf = (o) =>
-    o.utm?.campaign ||
+    o.attribution?.campaign || o.utm?.campaign ||
     (o.source === 'website'
       ? o.utm?.source ? `${o.utm.source} (no campaign)` : 'Website (no ad)'
       : `Manual: ${o.source}`)
@@ -120,12 +128,12 @@ router.get('/', protect, asyncHandler(async (req, res) => {
   res.json({
     days,
     funnel: { visitors, viewers, websiteOrders, unfinished },
-    pipeline: summarize(orders),
+    pipeline: summarize(orders, costs),
     aov,
     avgDeliveryHours,
     returning: { customers: phones.length, returning: earlier.length, rate: pct(earlier.length, phones.length) },
-    byCampaign: groupBy(orders, campaignOf),
-    byArea: groupBy(orders, (o) => o.customer?.area || 'Unknown', 12),
+    byCampaign: groupBy(orders, campaignOf, 15, costs),
+    byArea: groupBy(orders, (o) => o.customer?.area || 'Unknown', 12, costs),
     byHour,
     byWeekday,
     stockRisk,

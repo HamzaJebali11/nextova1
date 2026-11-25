@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../../lib/api'
 import { useStore } from '../storeContext'
+import { usePageMeta } from '../../lib/seo'
 
 // plain-text format: "## Heading", "- bullet", blank line = new paragraph (nothing is run as HTML)
 function Content({ text }) {
@@ -50,22 +51,21 @@ export default function Page() {
   }, [slug])
 
   const title = state.page ? pick(state.page.title) : ''
-  useEffect(() => {
-    if (!title) return
-    const store = settings.storeName || 'Nextova'
-    document.title = `${title} | ${store}`
-    return () => { document.title = store }
-  }, [title, settings.storeName])
+  const store = settings.storeName || 'Nextova'
+  usePageMeta({
+    title: title ? `${title} | ${store}` : state.missing ? `${t('pageNotFound')} | ${store}` : undefined,
+    robots: state.missing ? 'noindex' : undefined,
+  })
 
   if (state.slug !== slug) {
-    return <div className="mx-auto max-w-3xl animate-pulse space-y-4 px-4 py-12"><div className="h-8 w-1/2 rounded bg-gray-200" /><div className="h-40 rounded bg-gray-200" /></div>
+    return <div className="mx-auto min-h-[60vh] max-w-3xl animate-pulse space-y-4 px-4 py-12"><div className="h-8 w-1/2 rounded bg-gray-200" /><div className="h-40 rounded bg-gray-200" /></div>
   }
 
   if (state.missing) {
     return (
-      <div className="px-4 py-24 text-center">
-        <p className="mb-4 text-lg text-gray-600">{t('notFound')}</p>
-        <Link to="/shop" className="rounded-full bg-gray-900 px-6 py-2.5 text-white hover:bg-emerald-600">{t('backToShop')}</Link>
+      <div className="min-h-[60vh] px-4 py-12 text-center">
+        <h1 className="mb-4 text-lg font-normal text-gray-600">{t('pageNotFound')}</h1>
+        <Link to="/shop" className="inline-flex min-h-11 items-center rounded-full bg-gray-900 px-6 text-white hover:bg-gray-800">{t('backToShop')}</Link>
       </div>
     )
   }

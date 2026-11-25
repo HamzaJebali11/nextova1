@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { Phone, Trash2 } from 'lucide-react'
 import { api } from '../../lib/api'
-import { money } from '../../lib/constants'
+import { money, fmtDate } from '../../lib/constants'
 import { WhatsAppIcon } from '../../store/components/icons'
+import { FilterChip, ListTable, PageHeader, Pager, SearchBox, SidePanel, Tag, Th, Toolbar } from '../components/ListKit'
+import { btn } from '../components/listStyles'
 
 const TABS = [
   ['new', 'To follow up'],
@@ -11,33 +14,21 @@ const TABS = [
   ['ignored', 'Ignored'],
   ['all', 'All'],
 ]
+const TONE = { new: 'ink', contacted: 'soft', ordered: 'outline', ignored: 'muted' }
 
 function ago(date) {
-  const mins = Math.max(
-    1,
-    Math.round(
-      (Date.now() - new Date(date).getTime()) / 60000
-    )
-  )
-
+  const mins = Math.max(1, Math.round((Date.now() - new Date(date).getTime()) / 60000))
   if (mins < 60) return `${mins} min ago`
   if (mins < 1440) return `${Math.round(mins / 60)} h ago`
-
   return `${Math.round(mins / 1440)} d ago`
 }
 
+const itemsText = (lead) =>
+  lead.items.map((i) => `${i.qty} × ${i.name}${i.variantName ? ` (${i.variantName})` : ''}`).join(', ')
+
 function message(lead, lang, store) {
-  const list = lead.items
-    .map(
-      (i) =>
-        `${i.qty} × ${i.name}${
-          i.variantName ? ` (${i.variantName})` : ''
-        }`
-    )
-    .join(', ')
-
+  const list = itemsText(lead)
   const name = lead.name ? ` ${lead.name}` : ''
-
   return lang === 'ar'
     ? `مرحبًا${name}، معك ${store}. لاحظنا أنك كنت تطلب ${list} من موقعنا ولم تكمل الطلب. هل تحتاج أي مساعدة، أو تحب أن نكمل لك الطلب؟ (الدفع عند الاستلام)`
     : `Hello${name}, this is ${store}. We noticed you were ordering ${list} on our website but did not finish. Can we help, or would you like us to place the order for you? (Cash on delivery)`
@@ -46,99 +37,50 @@ function message(lead, lang, store) {
 export default function Leads() {
   const [tab, setTab] = useState('new')
   const [page, setPage] = useState(1)
-
-  const [data, setData] = useState({
-    items: [],
-    pages: 1,
-    total: 0,
-    newCount: 0,
-  })
-
+  const [q, setQ] = useState('')
+  const [data, setData] = useState({ items: [], pages: 1, total: 0, newCount: 0 })
+  const [loading, setLoading] = useState(true)
   const [store, setStore] = useState('Nextova')
+  const [open, setOpen] = useState(null)
 
-  // Load leads whenever tab/page changes.
+  const load = useCallback(async () => {
+    const params = new URLSearchParams({ status: tab, page })
+    if (q.trim()) params.set('q', q.trim())
+    setLoading(true)
+    try {
+      setData(await api(`/leads?${params}`))
+    } catch {
+      // keep the current list
+    } finally {
+      setLoading(false)
+    }
+  }, [tab, page, q])
+
   useEffect(() => {
-    let cancelled = false
+    const t = setTimeout(load, 250)
+    return () => clearTimeout(t)
+  }, [load])
 
-    async function fetchLeads() {
-      try {
-        const result = await api(
-          `/leads?status=${tab}&page=${page}`
-        )
-
-        if (!cancelled) {
-          setData(result)
-        }
-      } catch {
-        // Ignore loading errors here.
-      }
-    }
-
-    fetchLeads()
-
-    return () => {
-      cancelled = true
-    }
-  }, [tab, page])
-
-  // Load store settings once.
   useEffect(() => {
-    let cancelled = false
-
-    async function fetchSettings() {
-      try {
-        const settings = await api('/settings')
-
-        if (
-          !cancelled &&
-          settings.storeName
-        ) {
-          setStore(settings.storeName)
-        }
-      } catch {
-        // Keep default store name.
-      }
-    }
-
-    fetchSettings()
-
-    return () => {
-      cancelled = true
-    }
+    api('/settings').then((s) => s.storeName && setStore(s.storeName)).catch(() => {})
   }, [])
 
-  async function setStatus(id, status) {
+  async function setStatus(lead, status) {
     try {
-      await api(`/leads/${id}/status`, {
-        method: 'PATCH',
-        body: { status },
-      })
-
-      // Reload the current page after changing status.
-      const result = await api(
-        `/leads?status=${tab}&page=${page}`
-      )
-
-      setData(result)
+      const updated = await api(`/leads/${lead._id}/status`, { method: 'PATCH', body: { status } })
+      if (open?._id === lead._id) setOpen({ ...open, status: updated.status })
+      await load()
     } catch (e) {
       alert(e.message)
     }
   }
 
-  async function remove(id) {
+  async function remove(lead) {
     if (!confirm('Delete this lead?')) return
-
     try {
-      await api(`/leads/${id}`, {
-        method: 'DELETE',
-      })
-
-      // Reload the current page after deletion.
-      const result = await api(
-        `/leads?status=${tab}&page=${page}`
-      )
-
-      setData(result)
+      await api(`/leads/${lead._id}`, { method: 'DELETE' })
+      setOpen(null)
+      await load()
     } catch (e) {
       alert(e.message)
     }
@@ -146,229 +88,93 @@ export default function Leads() {
 
   function chat(lead, lang) {
     const phone = lead.phone.replace(/\D/g, '')
-
-    window.open(
-      `https://wa.me/${phone}?text=${encodeURIComponent(
-        message(lead, lang, store)
-      )}`,
-      '_blank',
-      'noopener'
-    )
-
-    if (lead.status === 'new') {
-      setStatus(lead._id, 'contacted')
-    }
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message(lead, lang, store))}`, '_blank', 'noopener')
+    if (lead.status === 'new') setStatus(lead, 'contacted')
   }
+
+  const actions = (l) => (
+    <div className="flex flex-wrap gap-2">
+      <button onClick={() => chat(l, 'en')} className={btn.whatsapp}><WhatsAppIcon size={15} /> WhatsApp (English)</button>
+      <button onClick={() => chat(l, 'ar')} className={btn.whatsapp}><WhatsAppIcon size={15} /> واتساب (عربي)</button>
+      <a href={`tel:${l.phone}`} className={btn.ghost}><Phone size={15} /> Call</a>
+      {l.status !== 'ignored' && <button onClick={() => setStatus(l, 'ignored')} className={btn.ghost}>Ignore</button>}
+      {l.status !== 'new' && <button onClick={() => setStatus(l, 'new')} className={btn.ghost}>Back to follow-up</button>}
+      <button onClick={() => remove(l)} className={btn.danger}><Trash2 size={14} /> Delete</button>
+    </div>
+  )
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-bold">
-        Unfinished orders
-      </h1>
+      <PageHeader
+        title="Unfinished orders"
+        subtitle={'People who typed their phone number but did not place the order. A short, helpful WhatsApp often turns them into orders. Leads delete themselves 30 days after their last activity, and become "Ordered" automatically if they order.'}
+      />
 
-      <p className="mb-5 text-sm text-gray-500">
-        People who typed their phone number but did not
-        place the order. Message them quickly: a short,
-        helpful WhatsApp often turns them into orders.
-        Leads delete themselves 30 days after their last
-        activity, and become "Ordered" automatically if
-        they order.
-      </p>
-
-      <div className="mb-4 flex flex-wrap gap-2">
+      <Toolbar>
         {TABS.map(([value, label]) => (
-          <button
-            key={value}
-            onClick={() => {
-              setTab(value)
-              setPage(1)
-            }}
-            className={`rounded-full px-4 py-1.5 text-sm ${
-              tab === value
-                ? 'bg-gray-900 text-white'
-                : 'border bg-white hover:bg-gray-100'
-            }`}
-          >
+          <FilterChip key={value} active={tab === value} onClick={() => { setTab(value); setPage(1) }}
+            count={value === 'new' ? data.newCount : 0} alert={value === 'new'}>
             {label}
-
-            {value === 'new' &&
-              data.newCount > 0 &&
-              ` (${data.newCount})`}
-          </button>
+          </FilterChip>
         ))}
-      </div>
+        <SearchBox value={q} onChange={(v) => { setQ(v); setPage(1) }} placeholder="Name or phone" className="w-full md:ms-auto md:w-64" />
+      </Toolbar>
 
-      <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-        {data.items.length === 0 && (
-          <div className="p-6 text-gray-500">
-            Nothing here.
-          </div>
+      <ListTable colSpan={6} loading={loading && data.items.length === 0} empty={data.items.length === 0 && 'Nothing here.'} minWidth="56rem"
+        head={<><Th>Customer</Th><Th>Items</Th><Th>Area · last activity</Th><Th end>Total</Th><Th>Status</Th><Th end><span className="sr-only">WhatsApp</span></Th></>}>
+        {data.items.map((l) => (
+          <tr key={l._id} onClick={() => setOpen(l)} className="cursor-pointer align-top hover:bg-gray-50">
+            <td className="p-3">
+              <div className="font-semibold">{l.name || 'No name yet'}</div>
+              <div className="text-xs text-gray-500" dir="ltr">{l.phone}</div>
+            </td>
+            <td className="max-w-[18rem] p-3"><div className="line-clamp-2">{itemsText(l)}</div></td>
+            <td className="p-3 text-gray-700">
+              {l.area || '–'}
+              <div className="text-xs text-gray-500">{ago(l.updatedAt)}</div>
+              {(l.utm?.campaign || l.angle?.slug) && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {l.utm?.campaign && <Tag tone="muted">ad: {l.utm.campaign}</Tag>}
+                  {l.angle?.slug && <Tag tone="muted">angle: {l.angle.slug}</Tag>}
+                </div>
+              )}
+            </td>
+            <td className="p-3 text-end font-semibold">{l.total !== undefined ? money(l.total) : '–'}</td>
+            <td className="p-3"><Tag tone={TONE[l.status]}>{l.status}</Tag></td>
+            <td className="p-3 text-end" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => chat(l, 'en')} aria-label={`WhatsApp ${l.name || l.phone}`} title="WhatsApp (English)"
+                className="inline-grid h-9 w-9 place-items-center rounded-full bg-[#25D366] text-white hover:brightness-110">
+                <WhatsAppIcon size={18} />
+              </button>
+            </td>
+          </tr>
+        ))}
+      </ListTable>
+
+      <Pager page={page} pages={data.pages} total={data.total} label="lead(s)" onPage={setPage} />
+
+      <AnimatePresence>
+        {open && (
+          <SidePanel key={open._id} title={open.name || open.phone} onClose={() => setOpen(null)}>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <Tag tone={TONE[open.status]}>{open.status}</Tag>
+              {open.utm?.campaign && <Tag tone="muted">ad: {open.utm.campaign}</Tag>}
+              {open.angle?.slug && <Tag tone="muted">angle: {open.angle.slug}</Tag>}
+            </div>
+            <dl className="mb-5 space-y-2 rounded-xl bg-gray-50 p-4 text-sm">
+              <div className="flex justify-between gap-3"><dt className="text-gray-500">Phone</dt><dd dir="ltr" className="font-semibold">{open.phone}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-gray-500">Area</dt><dd>{open.area || '–'}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-gray-500">Last activity</dt><dd>{fmtDate(open.updatedAt)}</dd></div>
+              <div className="flex justify-between gap-3"><dt className="text-gray-500">Cart total</dt><dd className="font-semibold">{open.total !== undefined ? money(open.total) : '–'}</dd></div>
+            </dl>
+            <h3 className="mb-2 font-semibold">Items</h3>
+            <ul className="mb-5 divide-y text-sm">
+              {open.items.map((i, idx) => <li key={idx} className="py-2">{i.qty} × {i.name}{i.variantName ? ` (${i.variantName})` : ''}</li>)}
+            </ul>
+            {actions(open)}
+          </SidePanel>
         )}
-
-        <ul className="divide-y">
-          {data.items.map((l) => (
-            <li
-              key={l._id}
-              className="p-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <div className="font-semibold">
-                    {l.name || 'No name yet'} ·{' '}
-                    <span dir="ltr">
-                      {l.phone}
-                    </span>
-                  </div>
-
-                  <div className="text-xs text-gray-500">
-                    {[l.area, ago(l.updatedAt)]
-                      .filter(Boolean)
-                      .join(' · ')}
-
-                    {l.utm?.campaign
-                      ? ` · ad: ${l.utm.campaign}`
-                      : ''}
-                  </div>
-                </div>
-
-                <div className="text-end">
-                  {l.total !== undefined && (
-                    <div className="font-semibold">
-                      {money(l.total)}
-                    </div>
-                  )}
-
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      l.status === 'new'
-                        ? 'bg-amber-100 text-amber-700'
-                        : l.status === 'ordered'
-                          ? 'bg-green-100 text-green-700'
-                          : l.status === 'contacted'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {l.status}
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-2 text-sm text-gray-700">
-                {l.items.map((i, idx) => (
-                  <span key={idx}>
-                    {idx > 0 ? ', ' : ''}
-                    {i.qty} × {i.name}
-                    {i.variantName
-                      ? ` (${i.variantName})`
-                      : ''}
-                  </span>
-                ))}
-              </div>
-
-              <div className="mt-3 flex flex-wrap gap-2 text-sm">
-                <button
-                  onClick={() =>
-                    chat(l, 'en')
-                  }
-                  className="flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2 font-semibold text-white hover:brightness-110"
-                >
-                  <WhatsAppIcon size={16} />
-                  WhatsApp (English)
-                </button>
-
-                <button
-                  onClick={() =>
-                    chat(l, 'ar')
-                  }
-                  className="flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2 font-semibold text-white hover:brightness-110"
-                >
-                  <WhatsAppIcon size={16} />
-                  واتساب (عربي)
-                </button>
-
-                <a
-                  href={`tel:${l.phone}`}
-                  className="flex items-center gap-2 rounded-full border px-4 py-2 hover:bg-gray-100"
-                >
-                  <Phone size={16} />
-                  Call
-                </a>
-
-                {l.status !== 'ignored' && (
-                  <button
-                    onClick={() =>
-                      setStatus(
-                        l._id,
-                        'ignored'
-                      )
-                    }
-                    className="rounded-full border px-4 py-2 hover:bg-gray-100"
-                  >
-                    Ignore
-                  </button>
-                )}
-
-                {l.status !== 'new' && (
-                  <button
-                    onClick={() =>
-                      setStatus(
-                        l._id,
-                        'new'
-                      )
-                    }
-                    className="rounded-full border px-4 py-2 hover:bg-gray-100"
-                  >
-                    Back to follow-up
-                  </button>
-                )}
-
-                <button
-                  onClick={() =>
-                    remove(l._id)
-                  }
-                  className="flex items-center gap-1 rounded-full border px-4 py-2 text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 size={14} />
-                  Delete
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-        <span>
-          {data.total} lead(s)
-        </span>
-
-        <div className="flex items-center gap-2">
-          <button
-            disabled={page <= 1}
-            onClick={() =>
-              setPage(page - 1)
-            }
-            className="rounded-lg border bg-white px-3 py-1.5 disabled:opacity-40"
-          >
-            Previous
-          </button>
-
-          <span>
-            {page} / {data.pages || 1}
-          </span>
-
-          <button
-            disabled={page >= data.pages}
-            onClick={() =>
-              setPage(page + 1)
-            }
-            className="rounded-lg border bg-white px-3 py-1.5 disabled:opacity-40"
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      </AnimatePresence>
     </div>
   )
 }

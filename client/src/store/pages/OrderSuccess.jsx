@@ -2,15 +2,25 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { CheckCircle2, MapPin } from 'lucide-react'
 import { useStore } from '../storeContext'
+import { usePageMeta } from '../../lib/seo'
 import { WhatsAppIcon } from '../components/icons'
+import Recommendations from '../components/Recommendations'
 
 export default function OrderSuccess() {
   const { t, money, settings } = useStore()
+  usePageMeta({ title: `${t('thankYou')} | ${settings.storeName || 'Nextova'}`, robots: 'noindex' })
   const [sp] = useSearchParams()
   const number = sp.get('n')
   const total = sp.get('t')
 
   if (!number) return <Navigate to="/" replace />
+
+  // products of the order just placed (saved by the order form for this tab), left out of the row below
+  let orderedIds = []
+  try {
+    const last = JSON.parse(sessionStorage.getItem('nx_last_order'))
+    if (last?.n === number) orderedIds = last.ids || []
+  } catch { /* none */ }
 
   const wa = settings.whatsappNumber
     ? `https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(t('locationMsg').replace('{num}', number))}`
@@ -26,7 +36,7 @@ export default function OrderSuccess() {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
         <h1 className="text-2xl font-bold md:text-3xl">{t('thankYou')}</h1>
 
-        <div className="mt-4 inline-block rounded-2xl bg-gray-50 px-6 py-4">
+        <div className="mt-4 inline-block rounded-2xl bg-quiet px-6 py-4">
           <div className="text-sm text-gray-500">{t('orderNumber')}</div>
           <div className="text-2xl font-extrabold tracking-wide">{number}</div>
           {total && (
@@ -58,11 +68,14 @@ export default function OrderSuccess() {
         <p className="mt-5 text-sm text-gray-600">{t('successSub')}</p>
 
         <div className="mt-6">
-          <Link to="/shop" className="inline-block rounded-full border px-8 py-3 font-medium hover:bg-gray-50">
+          <Link to="/shop" className="inline-block rounded-full border px-8 py-3 font-medium hover:bg-quiet">
             {t('continueShopping')}
           </Link>
         </div>
       </motion.div>
+
+      {/* Add more: goes into a NEW cart; the order just placed is not changed. No Purchase event here. */}
+      <Recommendations exclude={orderedIds} title="moreDelivery" className="mt-10 text-start" />
     </div>
   )
 }

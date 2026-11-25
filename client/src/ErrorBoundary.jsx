@@ -1,4 +1,5 @@
 import { Component } from 'react'
+import { reportError } from './lib/errorReport'
 
 export default class ErrorBoundary extends Component {
   state = { error: null }
@@ -9,6 +10,7 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('App crashed:', error, info)
+    reportError('boundary', `${error?.message || error}${info?.componentStack ? ` @ ${info.componentStack.trim().split('\n')[0].trim()}` : ''}`)
   }
 
   render() {

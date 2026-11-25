@@ -78,7 +78,7 @@ router.get('/visitors', protect, asyncHandler(async (req, res) => {
     return r?.n || 0
   }
 
-  const [perDay, sources, productHits, orderRows, last7, range] = await Promise.all([
+  const [perDay, sources, productHits, orderRows, last7, range, devices, sourceOrders] = await Promise.all([
     Visit.aggregate([
       { $match: { day: { $gte: from } } },
       { $group: { _id: '$day', visitors: { $sum: 1 }, pageViews: { $sum: '$pageViews' } } },
@@ -106,7 +106,30 @@ router.get('/visitors', protect, asyncHandler(async (req, res) => {
     ]),
     uniqueSince(addDays(today, -6)),
     uniqueSince(from),
+    Visit.aggregate([
+      { $match: { day: { $gte: from } } },
+      { $group: { _id: '$device', visitors: { $sum: 1 } } },
+    ]),
+    Order.find({ source: 'website', createdAt: { $gte: new Date(`${from}T00:00:00+03:00`) } })
+      .select('utm attribution total status').limit(20000).lean(),
   ])
+
+  // orders per source, labelled the same way as visits ("facebook / paid", a referrer, or "direct")
+  const sourceOf = (o) => {
+    const a = o.attribution || {}
+    const src = a.source || o.utm?.source
+    const med = a.medium || o.utm?.medium
+    if (src) return `${src}${med ? ` / ${med}` : ''}`
+    if (a.referrer) return a.referrer
+    return o.attribution ? 'direct' : 'unknown (order before tracking)'
+  }
+  const ordersBySource = {}
+  for (const o of sourceOrders) {
+    const k = sourceOf(o)
+    const t = (ordersBySource[k] ||= { orders: 0, revenue: 0 })
+    t.orders += 1
+    if (!['cancelled', 'returned'].includes(o.status)) t.revenue += o.total || 0
+  }
 
   const byDay = Object.fromEntries(perDay.map((d) => [d._id, d]))
   const ordersByDay = Object.fromEntries(orderRows.map((o) => [o._id, o.orders]))
@@ -138,7 +161,24 @@ router.get('/visitors', protect, asyncHandler(async (req, res) => {
       orders,
       conversion: range ? Math.round((orders / range) * 1000) / 10 : 0,
     },
-    sources: sources.map((s) => ({ name: s._id || 'direct', visitors: s.visitors })),
+    sources: [
+      ...sources.map((s) => {
+        const name = s._id || 'direct'
+        const o = ordersBySource[name] || { orders: 0, revenue: 0 }
+        return {
+          name,
+          visitors: s.visitors,
+          orders: o.orders,
+          revenue: Math.round(o.revenue * 100) / 100,
+          conversion: s.visitors ? Math.round((o.orders / s.visitors) * 1000) / 10 : 0,
+        }
+      }),
+      // order sources with no visits in the top list (for example orders placed before tracking)
+      ...Object.entries(ordersBySource)
+        .filter(([name]) => !sources.some((s) => (s._id || 'direct') === name))
+        .map(([name, o]) => ({ name, visitors: 0, orders: o.orders, revenue: Math.round(o.revenue * 100) / 100, conversion: null })),
+    ],
+    devices: devices.map((d) => ({ name: d._id || 'unknown', visitors: d.visitors })),
     products: productHits.map((p) => ({ slug: p._id, name: nameOf[p._id] || p._id, visitors: p.visitors })),
   })
 }))

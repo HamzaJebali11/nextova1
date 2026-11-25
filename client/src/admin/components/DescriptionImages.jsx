@@ -3,6 +3,8 @@ import { ArrowDown, ArrowUp, ImagePlus, Trash2 } from 'lucide-react'
 import { uploadImage } from '../../lib/upload'
 import { optimizeImg } from '../../lib/image'
 
+const capCls = 'mt-1 w-full rounded-lg border bg-white px-2.5 py-1.5 text-sm font-normal outline-none focus:ring-2 focus:ring-gray-900'
+
 export default function DescriptionImages({ title, images, onChange }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -27,6 +29,9 @@ export default function DescriptionImages({ title, images, onChange }) {
       setUploading(false)
     }
   }
+
+  const setCaption = (i, key, lang, v) =>
+    onChange(images.map((im, j) => (j === i ? { ...im, [key]: { ...(im[key] || {}), [lang]: v } } : im)))
 
   function move(i, dir) {
     const j = i + dir
@@ -54,16 +59,37 @@ export default function DescriptionImages({ title, images, onChange }) {
 
       <ul className="space-y-2">
         {images.map((im, i) => (
-          <li key={im.url} className="flex items-center gap-3 rounded-lg bg-gray-50 p-2">
-            <span className="w-5 text-center text-xs text-gray-400">{i + 1}</span>
-            <img src={optimizeImg(im.url, 200)} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
-            <span className="min-w-0 flex-1 truncate text-xs text-gray-500">Shown in this order</span>
-            <button type="button" onClick={() => move(i, -1)} disabled={i === 0}
-              className="rounded-lg border bg-white p-2 hover:bg-gray-100 disabled:opacity-30" title="Move up"><ArrowUp size={16} /></button>
-            <button type="button" onClick={() => move(i, 1)} disabled={i === images.length - 1}
-              className="rounded-lg border bg-white p-2 hover:bg-gray-100 disabled:opacity-30" title="Move down"><ArrowDown size={16} /></button>
-            <button type="button" onClick={() => onChange(images.filter((_, j) => j !== i))}
-              className="rounded-lg border bg-white p-2 text-red-600 hover:bg-red-50" title="Remove"><Trash2 size={16} /></button>
+          <li key={im.url} className="grid gap-3 rounded-lg bg-gray-50 p-2 sm:grid-cols-[auto_1fr]">
+            {/* picture + order controls */}
+            <div className="flex items-start gap-2 sm:flex-col">
+              <div className="relative">
+                <img src={optimizeImg(im.url, 240)} alt="" className="h-24 w-24 shrink-0 rounded-lg object-cover" />
+                <span className="absolute start-1 top-1 rounded bg-ink px-1.5 text-[10px] font-bold text-white">{i + 1}</span>
+              </div>
+              <div className="flex gap-1">
+                <button type="button" onClick={() => move(i, -1)} disabled={i === 0}
+                  className="rounded-lg border bg-white p-1.5 hover:bg-gray-100 disabled:opacity-30" title="Move up" aria-label="Move up"><ArrowUp size={15} /></button>
+                <button type="button" onClick={() => move(i, 1)} disabled={i === images.length - 1}
+                  className="rounded-lg border bg-white p-1.5 hover:bg-gray-100 disabled:opacity-30" title="Move down" aria-label="Move down"><ArrowDown size={15} /></button>
+                <button type="button" onClick={() => onChange(images.filter((_, j) => j !== i))}
+                  className="rounded-lg border bg-white p-1.5 text-red-600 hover:bg-red-50" title="Remove" aria-label="Remove picture"><Trash2 size={15} /></button>
+              </div>
+            </div>
+            {/* text shown in the box next to this picture (empty = the text area stays blank) */}
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="block text-xs font-medium">Title (English)
+                <input className={capCls} maxLength={60} value={im.title?.en || ''} onChange={(e) => setCaption(i, 'title', 'en', e.target.value)} />
+              </label>
+              <label className="block text-xs font-medium">Title (Arabic)
+                <input dir="rtl" className={capCls} maxLength={60} value={im.title?.ar || ''} onChange={(e) => setCaption(i, 'title', 'ar', e.target.value)} />
+              </label>
+              <label className="block text-xs font-medium">Text (English)
+                <textarea rows={3} className={capCls} maxLength={400} value={im.text?.en || ''} onChange={(e) => setCaption(i, 'text', 'en', e.target.value)} />
+              </label>
+              <label className="block text-xs font-medium">Text (Arabic)
+                <textarea dir="rtl" rows={3} className={capCls} maxLength={400} value={im.text?.ar || ''} onChange={(e) => setCaption(i, 'text', 'ar', e.target.value)} />
+              </label>
+            </div>
           </li>
         ))}
       </ul>

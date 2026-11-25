@@ -1,45 +1,25 @@
-
-import { Banknote, RefreshCcw, ShieldCheck, Truck } from 'lucide-react'
+import { Banknote, RotateCcw, Truck } from 'lucide-react'
 import { useStore } from '../storeContext'
 
+// Trust row: three small icons with text (no payment card icons)
 const ITEMS = [
-  ['delivery', Truck, 'trustDelivery'],
-  ['payment', Banknote, 'trustPayment'],
-  ['returns', RefreshCcw, 'trustReturns'],
-  ['support', ShieldCheck, 'trustSupport'],
+  ['trustRowCod', Banknote],
+  ['trustEasyReturns', RotateCcw],
+  ['trustDelivery2', Truck],
 ]
 
 export default function TrustInfo() {
-  const { settings, pick, t } = useStore()
-
-  const rows = ITEMS
-    .map(([key, Icon, label]) => ({
-      key,
-      Icon,
-      label,
-      text: pick(settings.trust?.[key]),
-    }))
-    .filter((item) => item.text)
-
-  if (rows.length === 0) return null
-
+  const { t } = useStore()
   return (
-    <div className="mt-4 grid gap-2 sm:grid-cols-2">
-      {rows.map(({ key, Icon, label, text }) => (
-        <div
-          key={key}
-          className="flex gap-3 rounded-2xl bg-gray-50 p-3"
-        >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-emerald-600 shadow-sm">
+    <ul className="grid grid-cols-3 gap-2 text-center">
+      {ITEMS.map(([key, Icon]) => (
+        <li key={key} className="flex flex-col items-center gap-1.5 text-xs leading-snug text-gray-600">
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-quiet text-ink" aria-hidden="true">
             <Icon size={18} />
           </span>
-
-          <div className="text-sm">
-            <div className="font-semibold">{t(label)}</div>
-            <div className="text-gray-600">{text}</div>
-          </div>
-        </div>
+          {t(key)}
+        </li>
       ))}
-    </div>
+    </ul>
   )
 }

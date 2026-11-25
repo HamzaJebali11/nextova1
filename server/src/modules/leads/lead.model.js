@@ -12,6 +12,7 @@ const leadSchema = new mongoose.Schema({
   }],
   total: Number,
   utm: { source: String, medium: String, campaign: String },
+  angle: { slug: String, product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' } }, // ad angle page
   status: { type: String, enum: ['new', 'contacted', 'ordered', 'ignored'], default: 'new', index: true },
   ip: String,
 }, { timestamps: true })

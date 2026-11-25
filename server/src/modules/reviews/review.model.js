@@ -9,7 +9,9 @@ const reviewSchema = new mongoose.Schema({
   images: [{ url: String, publicId: String }],
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending', index: true },
   source: { type: String, enum: ['customer', 'admin'], default: 'customer' },
-  verified: { type: Boolean, default: false },
+  verified: { type: Boolean, default: false }, // older manual tick (no longer shown on its own)
+  // the real order this review belongs to: "Verified buyer" is shown ONLY when this is set
+  order: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
   ip: String,
 }, { timestamps: true })
 

@@ -4,12 +4,15 @@ import { Trash2 } from 'lucide-react'
 import { optimizeImg } from '../../lib/image'
 import { track } from '../../lib/pixel'
 import { useStore } from '../storeContext'
+import { usePageMeta } from '../../lib/seo'
 import { useCart } from '../../cart/cartContext'
 import QtyStepper from '../components/QtyStepper'
 import OrderForm from '../components/OrderForm'
+import Recommendations from '../components/Recommendations'
 
 export default function Checkout() {
   const { t, pick, money } = useStore()
+  usePageMeta({ title: t('checkoutTitle'), robots: 'noindex' })
   const { items, setQty, remove, clear } = useCart()
   const has = items.length > 0
 
@@ -20,7 +23,7 @@ export default function Checkout() {
   if (!has) {
     return (
       <div className="px-4 py-24 text-center">
-        <p className="mb-4 text-lg text-gray-600">{t('cartEmpty')}</p>
+        <h1 className="mb-4 text-lg font-normal text-gray-600">{t('cartEmpty')}</h1>
         <Link to="/shop" className="rounded-full bg-gray-900 px-6 py-2.5 text-white hover:bg-emerald-600">{t('continueShopping')}</Link>
       </div>
     )
@@ -30,17 +33,17 @@ export default function Checkout() {
     <div className="mx-auto max-w-5xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold md:text-3xl">{t('checkoutTitle')}</h1>
       <div className="grid gap-8 lg:grid-cols-[1fr_24rem]">
-        <div className="order-2 rounded-2xl border bg-white p-5 shadow-sm lg:order-1">
+        <div className="order-2 rounded-2xl border border-line bg-white p-5 shadow-e1 lg:order-1 lg:row-span-2">
           <h2 className="mb-4 font-bold">{t('orderDetails')}</h2>
           <OrderForm lines={items} onPlaced={clear} />
         </div>
 
-        <div className="order-1 h-fit rounded-2xl border bg-gray-50 p-5 lg:order-2">
+        <div className="order-1 h-fit rounded-2xl border border-line bg-white p-5 shadow-e1 lg:order-2">
           <h2 className="mb-2 font-bold">{t('orderSummary')}</h2>
           <ul className="divide-y">
             {items.map((i) => (
               <li key={i.key} className="flex gap-3 py-3">
-                <img src={optimizeImg(i.image, 120)} alt="" className="h-16 w-16 shrink-0 rounded-xl bg-white object-cover" />
+                <img src={optimizeImg(i.image, 120)} alt="" width={64} height={64} className="h-16 w-16 shrink-0 rounded-xl bg-white object-cover" />
                 <div className="min-w-0 flex-1">
                   <div className="line-clamp-2 text-sm font-medium">{pick(i.name)}</div>
                   {i.variantName && <div className="text-sm font-semibold text-emerald-700">{i.variantName}</div>}
@@ -54,7 +57,7 @@ export default function Checkout() {
                   {i.giftQty > 0 && (
                     <div className="mt-2 flex items-center gap-2 rounded-xl bg-emerald-50 p-2 text-xs text-emerald-800">
                       {i.gift.image && (
-                        <img src={optimizeImg(i.gift.image, 80)} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                        <img src={optimizeImg(i.gift.image, 80)} alt="" width={32} height={32} className="h-8 w-8 rounded-lg object-cover" />
                       )}
                       <span>🎁 {pick(i.gift.name)} × {i.giftQty} · <b>{t('freeCaps')}</b></span>
                     </div>
@@ -64,6 +67,9 @@ export default function Checkout() {
             ))}
           </ul>
         </div>
+
+        <Recommendations exclude={items.map((i) => i.productId)}
+          className="order-3 h-fit min-w-0 rounded-2xl border border-line bg-white p-4 lg:col-start-2" />
       </div>
     </div>
   )

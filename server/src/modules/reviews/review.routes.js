@@ -4,6 +4,7 @@ import { z } from 'zod'
 import rateLimit from 'express-rate-limit'
 import Review from './review.model.js'
 import Product from '../products/product.model.js'
+import Order from '../orders/order.model.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { httpError } from '../../utils/httpError.js'
 import { protect } from '../../middleware/auth.js'
@@ -42,11 +43,29 @@ async function recalc(productId) {
   })
 }
 
+// what visitors see: first name + first letter of the last name, and "verified" only for a review
+// linked to a real order (the stored data is not changed; ip and order id are never sent)
+function publicReview(r) {
+  const parts = String(r.name || '').trim().split(/\s+/).filter(Boolean)
+  const name = parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1].charAt(0)}.` : parts[0] || ''
+  return {
+    _id: r._id,
+    name,
+    rating: r.rating,
+    title: r.title,
+    comment: r.comment,
+    images: r.images || [],
+    createdAt: r.createdAt,
+    verified: !!r.order,
+    product: r.product,
+  }
+}
+
 // ---- public ----
 router.get('/latest', asyncHandler(async (req, res) => {
   const items = await Review.find({ status: 'approved' })
     .sort({ createdAt: -1 }).limit(8).select('-ip').populate('product', 'name slug').lean()
-  res.json(items)
+  res.json(items.map(publicReview))
 }))
 
 router.get('/product/:productId', asyncHandler(async (req, res) => {
@@ -66,7 +85,7 @@ router.get('/product/:productId', asyncHandler(async (req, res) => {
   let sum = 0
   grouped.forEach((g) => { dist[g._id] = g.n; count += g.n; sum += g._id * g.n })
 
-  res.json({ items, summary: { avg: count ? Math.round((sum / count) * 10) / 10 : 0, count, dist } })
+  res.json({ items: items.map(publicReview), summary: { avg: count ? Math.round((sum / count) * 10) / 10 : 0, count, dist } })
 }))
 
 // customers send a review: it waits for your approval
@@ -92,7 +111,7 @@ router.get('/admin/all', protect, asyncHandler(async (req, res) => {
   const l = Math.min(100, Math.max(1, Number(limit) || 20))
 
   const [items, total, pending] = await Promise.all([
-    Review.find(filter).sort({ createdAt: -1 }).skip((p - 1) * l).limit(l).populate('product', 'name slug').lean(),
+    Review.find(filter).sort({ createdAt: -1 }).skip((p - 1) * l).limit(l).populate('product', 'name slug').populate('order', 'orderNumber').lean(),
     Review.countDocuments(filter),
     Review.countDocuments({ status: 'pending' }),
   ])
@@ -101,13 +120,20 @@ router.get('/admin/all', protect, asyncHandler(async (req, res) => {
 
 // you add a real customer's feedback yourself (e.g. from WhatsApp, with permission)
 router.post('/admin', protect, asyncHandler(async (req, res) => {
-  const { productId, name, rating, title, comment, images, verified } = req.body
+  const { productId, name, rating, title, comment, images, orderNumber } = req.body
   const product = await Product.findById(productId)
   if (!product) throw httpError(404, 'Product not found')
 
+  // optional link to the real order: only then is the review shown as "Verified buyer"
+  let order
+  if (orderNumber && String(orderNumber).trim()) {
+    order = await Order.findOne({ orderNumber: String(orderNumber).trim().toUpperCase(), 'items.product': product._id }).select('_id')
+    if (!order) throw httpError(400, 'No order with that number contains this product')
+  }
+
   const review = await Review.create({
     product: product._id, name, rating: Number(rating), title, comment,
-    images: images || [], verified: !!verified, status: 'approved', source: 'admin',
+    images: images || [], verified: !!order, order: order?._id, status: 'approved', source: 'admin',
   })
   await recalc(product._id)
   res.status(201).json(review)

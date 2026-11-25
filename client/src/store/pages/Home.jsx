@@ -5,13 +5,17 @@ import { ArrowRight, Banknote, ChevronDown, Truck } from 'lucide-react'
 import { api } from '../../lib/api'
 import { optimizeImg } from '../../lib/image'
 import { useStore } from '../storeContext'
+import { usePageMeta } from '../../lib/seo'
 import { WhatsAppIcon } from '../components/icons'
 import ReviewCarousel from '../components/ReviewCarousel'
+import Section from '../components/Section'
 import ProductGrid from '../components/ProductGrid'
+import Reveal from '../components/Reveal'
 
+// category tiles without a picture: black and grey tones only
 const GRADS = [
-  'from-emerald-500 to-teal-700', 'from-sky-500 to-indigo-700', 'from-amber-500 to-orange-700',
-  'from-fuchsia-500 to-purple-700', 'from-rose-500 to-red-700', 'from-lime-500 to-green-700',
+  'from-gray-800 to-ink', 'from-gray-700 to-gray-900', 'from-gray-600 to-gray-800',
+  'from-ink to-gray-700', 'from-gray-900 to-gray-600', 'from-gray-700 to-ink',
 ]
 
 function buildSections(all, t) {
@@ -44,106 +48,67 @@ function HeroVisual({ products }) {
   return (
     <div className="relative mx-auto hidden h-[26rem] w-full max-w-md md:block">
       {imgs.map((p, i) => (
-        <motion.div key={p._id} className={`absolute ${spots[i]} overflow-hidden rounded-3xl border-4 border-white/20 shadow-2xl`}
-          animate={{ y: [0, i % 2 ? 14 : -14, 0] }}
-          transition={{ duration: 6 + i, repeat: Infinity, ease: 'easeInOut' }}>
+        <div key={p._id} className={`absolute ${spots[i]} overflow-hidden rounded-3xl border-4 border-white shadow-[0_16px_36px_rgba(17,17,17,0.18),0_4px_10px_rgba(17,17,17,0.10)]`}>
           <Link to={`/product/${p.slug}`}>
-            <img src={optimizeImg(p.images[0].url, 400)} alt={pick(p.name)} className="aspect-square w-full object-cover" />
+            <img src={optimizeImg(p.images[0].url, 400)} alt={pick(p.name)} width={400} height={400} className="aspect-square w-full object-cover" />
           </Link>
-        </motion.div>
+        </div>
       ))}
     </div>
   )
 }
 
-function Hero({ products }) {
+function Hero({ products, loading }) {
   const { t } = useStore()
-  const hasVisual = products.some((p) => p.images?.[0]?.url)
+  // while the products load, keep the two-column layout (almost every store has product pictures): the hero
+  // no longer starts centred and then jumps to the left when the pictures arrive (layout shift)
+  const hasVisual = loading || products.some((p) => p.images?.[0]?.url)
   return (
-    <section className="relative overflow-hidden bg-gray-900 text-white">
-      <motion.div className="absolute -top-24 end-0 h-80 w-80 rounded-full bg-emerald-500/30 blur-3xl"
-        animate={{ y: [0, 30, 0] }} transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }} />
-      <motion.div className="absolute -bottom-24 start-0 h-72 w-72 rounded-full bg-sky-500/20 blur-3xl"
-        animate={{ y: [0, -30, 0] }} transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut' }} />
-
-      <div className={`relative mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 md:py-24 ${hasVisual ? 'md:grid-cols-2' : 'text-center'}`}>
-        <div className={hasVisual ? '' : 'mx-auto max-w-3xl'}>
-          <motion.span initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-emerald-300 ring-1 ring-white/15">
-            <Banknote size={16} /> {t('heroBadge')}
-          </motion.span>
-          <motion.h1 initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}
-            className="mt-5 text-4xl font-extrabold leading-tight md:text-6xl">
+    <section className="relative overflow-x-clip bg-white text-[#111111]">
+      <div className={`relative mx-auto grid max-w-[1180px] items-center gap-10 px-4 md:px-6 py-16 md:py-24 ${hasVisual ? 'md:grid-cols-2' : 'text-center'}`}>
+        {/* the banner panel: blurry transparent orange (one of the only two orange places in the store), dark text */}
+        <div className={`rounded-[20px] border border-[rgba(255,255,255,0.55)] bg-[rgba(255,106,26,0.55)] p-6 shadow-[0_18px_40px_rgba(17,17,17,0.16),0_4px_12px_rgba(17,17,17,0.08)] [-webkit-backdrop-filter:blur(14px)] [backdrop-filter:blur(14px)] md:p-10 ${hasVisual ? '' : 'mx-auto max-w-3xl'}`}>
+          <span className="inline-flex items-center gap-2 rounded-full bg-white/45 px-4 py-1.5 text-sm font-medium text-[#111111] ring-1 ring-white/60">
+            <Banknote size={16} aria-hidden="true" /> {t('heroBadge')}
+          </span>
+          <h1 className="mt-5 text-4xl font-extrabold leading-tight md:text-6xl">
             {t('heroTitle')}
-          </motion.h1>
-          <motion.p initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}
-            className={`mt-4 max-w-xl text-lg text-gray-300 ${hasVisual ? '' : 'mx-auto'}`}>
+          </h1>
+          <p className={`mt-4 max-w-xl text-lg text-[#111111]/85 ${hasVisual ? '' : 'mx-auto'}`}>
             {t('heroSub')}
-          </motion.p>
-          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}
-            className={`mt-8 flex flex-wrap gap-3 ${hasVisual ? '' : 'justify-center'}`}>
+          </p>
+          <div className={`mt-8 flex flex-wrap gap-3 ${hasVisual ? '' : 'justify-center'}`}>
             <Link to="/shop"
-              className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-7 py-3.5 font-semibold text-white transition hover:bg-emerald-400">
-              {t('shopNow')} <ArrowRight size={18} className="rtl:rotate-180" />
+              className="inline-flex min-h-11 items-center gap-2 rounded-full bg-accent px-7 py-3.5 font-semibold text-white transition duration-150 hover:bg-accent-hover">
+              {t('shopNow')} <ArrowRight size={18} className="rtl:rotate-180" aria-hidden="true" />
             </Link>
             <a href="#categories"
-              className="inline-flex items-center gap-2 rounded-full border border-white/25 px-7 py-3.5 font-semibold transition hover:bg-white/10">
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#111111]/30 px-7 py-3.5 font-semibold text-[#111111] transition duration-150 hover:bg-white/35">
               {t('heroSecondary')}
             </a>
-          </motion.div>
+          </div>
         </div>
-        <HeroVisual products={products} />
+        {loading ? <div aria-hidden="true" className="hidden h-[26rem] md:block" /> : <HeroVisual products={products} />}
       </div>
     </section>
   )
 }
 
-function Marquee() {
+function TrustStrip() {
   const { t } = useStore()
   const items = [
+    { icon: Truck, text: t('trustRowDelivery') },
     { icon: Banknote, text: t('codTitle') },
-    { icon: Truck, text: `${t('fastTitle')} · ${t('fastSub')}` },
     { icon: WhatsAppIcon, text: t('supportTitle') },
   ]
-  const group = (k) => (
-    <div key={k} className="flex shrink-0 items-center gap-12 pe-12">
-      {[0, 1, 2].flatMap((r) =>
-        items.map(({ icon: Icon, text }, i) => (
-          <span key={`${r}-${i}`} className="flex items-center gap-2 whitespace-nowrap text-sm font-medium">
-            <Icon size={18} /> {text}
-          </span>
-        ))
-      )}
-    </div>
-  )
   return (
-    <div dir="ltr" className="overflow-hidden bg-emerald-600 py-3 text-white">
-      <div className="nx-marquee flex w-max">{group('a')}{group('b')}</div>
+    <div className="border-b border-line bg-white">
+      <ul className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-center gap-x-8 gap-y-2 px-4 md:px-6 py-3 text-sm font-medium">
+        {items.map(({ icon: Icon, text }) => (
+          <li key={text} className="flex items-center gap-2"><Icon size={17} aria-hidden="true" /> {text}</li>
+        ))}
+      </ul>
     </div>
-  )
-}
-
-function Perks() {
-  const { t } = useStore()
-  const perks = [
-    { icon: Banknote, title: t('codTitle'), sub: t('codSub') },
-    { icon: Truck, title: t('fastTitle'), sub: t('fastSub') },
-    { icon: WhatsAppIcon, title: t('supportTitle'), sub: t('supportSub') },
-  ]
-  return (
-    <section className="mx-auto grid max-w-7xl gap-4 px-4 py-10 md:grid-cols-3">
-      {perks.map(({ icon: Icon, title, sub }, i) => (
-        <motion.div key={title} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-          className="flex items-center gap-4 rounded-3xl border bg-white p-5 transition hover:shadow-lg">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-600"><Icon size={24} /></div>
-          <div>
-            <div className="font-semibold">{title}</div>
-            <div className="text-sm text-gray-500">{sub}</div>
-          </div>
-        </motion.div>
-      ))}
-    </section>
   )
 }
 
@@ -152,17 +117,16 @@ function Categories() {
   const top = categories.filter((c) => !c.parent)
   if (top.length === 0) return null
   return (
-    <section id="categories" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-6">
-      <h2 className="mb-5 text-2xl font-bold md:text-3xl">{t('shopByCategory')}</h2>
+    <section id="categories" className="mx-auto max-w-[1180px] scroll-mt-28 px-4 md:px-6 pt-10 md:pt-12">
+      <h2 className="mb-6 text-2xl font-bold tracking-tight">{t('shopByCategory')}</h2>
       <div className="flex flex-wrap justify-center gap-4">
         {top.map((c, i) => (
-          <motion.div key={c._id} initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }} transition={{ delay: i * 0.05 }}
+          <Reveal key={c._id} delay={(i % 4) * 0.06}
             className="basis-[calc(50%_-_0.5rem)] md:basis-[calc(25%_-_0.75rem)]">
             <Link to={`/shop?category=${c.slug}`}
-              className={`group relative block aspect-[4/3] overflow-hidden rounded-3xl bg-gradient-to-br ${GRADS[i % GRADS.length]}`}>
+              className={`nx-lift group relative block aspect-[4/3] overflow-hidden rounded-2xl bg-gradient-to-br shadow-e1 ${GRADS[i % GRADS.length]}`}>
               {c.image?.url && (
-                <img src={optimizeImg(c.image.url, 500)} alt=""
+                <img src={optimizeImg(c.image.url, 500)} alt="" width={500} height={375}
                   className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-110" />
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
@@ -171,7 +135,7 @@ function Categories() {
                 <ArrowRight size={20} className="transition group-hover:translate-x-1 rtl:rotate-180 rtl:group-hover:-translate-x-1" />
               </div>
             </Link>
-          </motion.div>
+          </Reveal>
         ))}
       </div>
     </section>
@@ -190,12 +154,9 @@ function HomeReviews() {
 
   if (items.length === 0) return null
   return (
-    <section className="bg-gray-50 py-14">
-      <div className="mx-auto max-w-7xl px-4">
-        <h2 className="mb-8 text-center text-2xl font-bold md:text-3xl">{t('whatCustomersSay')}</h2>
-        <ReviewCarousel items={items} showProduct />
-      </div>
-    </section>
+    <Section title={t('whatCustomersSay')}>
+      <ReviewCarousel items={items.slice(0, 6)} showProduct />
+    </Section>
   )
 }
 
@@ -204,13 +165,12 @@ function Faq() {
   const [open, setOpen] = useState(0)
   const faqs = [1, 2, 3].map((n) => ({ q: t(`faq${n}q`), a: t(`faq${n}a`) }))
   return (
-    <section className="mx-auto max-w-3xl px-4 py-14">
-      <h2 className="mb-6 text-center text-2xl font-bold md:text-3xl">{t('faqTitle')}</h2>
-      <div className="space-y-3">
+    <Section title={t('faqTitle')}>
+      <div className="mx-auto max-w-3xl space-y-3">
         {faqs.map((f, i) => (
-          <div key={i} className="overflow-hidden rounded-2xl border bg-white">
-            <button onClick={() => setOpen(open === i ? -1 : i)}
-              className="flex w-full items-center justify-between gap-3 p-4 text-start font-semibold">
+          <Reveal key={i} delay={i * 0.06} className="overflow-hidden rounded-2xl border border-line bg-white shadow-e1">
+            <button onClick={() => setOpen(open === i ? -1 : i)} aria-expanded={open === i}
+              className="flex min-h-11 w-full items-center justify-between gap-3 p-4 text-start font-semibold">
               {f.q}
               <ChevronDown size={20} className={`shrink-0 transition ${open === i ? 'rotate-180' : ''}`} />
             </button>
@@ -221,10 +181,10 @@ function Faq() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
+          </Reveal>
         ))}
       </div>
-    </section>
+    </Section>
   )
 }
 
@@ -232,8 +192,8 @@ function WhatsAppBand() {
   const { t, settings } = useStore()
   if (!settings.whatsappNumber) return null
   return (
-    <section className="mx-auto max-w-7xl px-4 pb-6">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-green-500 to-green-700 p-8 text-center text-white md:p-12">
+    <section className="mx-auto mt-8 max-w-[1180px] px-4 md:px-6 pb-12 md:mt-12">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-green-500 to-green-700 p-8 text-center text-white md:p-12">
         <div className="absolute -end-10 -top-10 h-48 w-48 rounded-full bg-white/10" />
         <div className="absolute -bottom-12 -start-8 h-40 w-40 rounded-full bg-white/10" />
         <div className="relative">
@@ -241,7 +201,7 @@ function WhatsAppBand() {
           <p className="mx-auto mt-2 max-w-md text-green-50">{t('supportSub')}</p>
           <a href={`https://wa.me/${settings.whatsappNumber}?text=${encodeURIComponent(t('whatsappHello'))}`}
             target="_blank" rel="noreferrer"
-            className="nx-glow mt-6 inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 font-semibold text-green-700">
+            className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-full bg-white px-7 py-3 font-semibold text-green-700">
             <WhatsAppIcon size={22} /> {t('chatWhatsapp')}
           </a>
         </div>
@@ -251,7 +211,8 @@ function WhatsAppBand() {
 }
 
 export default function Home() {
-  const { t } = useStore()
+  const { t, settings } = useStore()
+  usePageMeta({ title: `${settings.storeName || 'Nextova'} | ${t('heroTitle')}`, description: t('heroSub') })
   const [all, setAll] = useState(null)
 
   useEffect(() => {
@@ -267,19 +228,18 @@ export default function Home() {
 
   return (
     <div>
-      <Hero products={heroProducts} />
-      <Marquee />
-      <Perks />
+      <Hero products={heroProducts} loading={all === null} />
+      <TrustStrip />
       <Categories />
 
       {all === null && (
-        <section className="mx-auto max-w-7xl px-4 py-10"><ProductGrid items={[]} loading count={4} /></section>
+        <section className="mx-auto max-w-[1180px] px-4 md:px-6 py-10"><ProductGrid items={[]} loading count={4} /></section>
       )}
       {sections.map((s) => (
-        <section key={s.key} className="mx-auto max-w-7xl px-4 py-10">
-          <div className="mb-6 flex items-end justify-between">
-            <h2 className="text-2xl font-bold md:text-3xl">{s.title}</h2>
-            <Link to={s.to} className="flex items-center gap-1 text-sm font-medium text-emerald-600 hover:underline">
+        <section key={s.key} className="mx-auto max-w-[1180px] px-4 md:px-6 pt-10 md:pt-12">
+          <div className="mb-6 flex items-end justify-between gap-3">
+            <h2 className="text-2xl font-bold tracking-tight">{s.title}</h2>
+            <Link to={s.to} className="flex min-h-11 items-center gap-1 text-sm font-semibold underline-offset-2 hover:underline">
               {t('viewAll')} <ArrowRight size={16} className="rtl:rotate-180" />
             </Link>
           </div>

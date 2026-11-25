@@ -15,18 +15,15 @@ const limiter = rateLimit({
   message: { message: 'Too many requests, please try again later' },
 })
 
-const qatarPhone = /^(?:\+?974)?[3567]\d{7}$/
+import { qatarPhoneField } from '../../utils/phone.js'
 
 const schema = z.object({
-  phone: z.string().trim()
-    .transform((s) => s.replace(/[\s-]/g, ''))
-    .refine((s) => qatarPhone.test(s), 'Invalid phone')
-    .transform((s) => '+974' + s.slice(-8)),
+  phone: qatarPhoneField(),
   name: z.string().trim().max(80).optional(),
   area: z.string().trim().max(80).optional(),
   items: z.array(z.object({
     productId: z.string().length(24),
-    variantName: z.string().optional(),
+    variantName: z.string().max(100).optional(),
     qty: z.number().int().min(1).max(20),
   })).min(1).max(30),
   total: z.number().min(0).max(1000000).optional(),
@@ -34,6 +31,10 @@ const schema = z.object({
     source: z.string().max(100).optional(),
     medium: z.string().max(100).optional(),
     campaign: z.string().max(100).optional(),
+  }).optional(),
+  angle: z.object({
+    slug: z.string().trim().toLowerCase().regex(/^[a-z0-9][a-z0-9-]{0,29}$/),
+    product: z.string().length(24).optional(),
   }).optional(),
   website: z.string().optional(), // hidden spam trap
 })
@@ -57,6 +58,7 @@ router.post('/', limiter, asyncHandler(async (req, res) => {
   if (data.area) set.area = data.area
   if (data.total !== undefined) set.total = data.total
   if (data.utm) set.utm = data.utm
+  if (data.angle) set.angle = data.angle
 
   // a customer who ordered before and comes back unfinished becomes a new lead again
   await Lead.updateOne({ phone: data.phone, status: 'ordered' }, { $set: { status: 'new' } })
@@ -70,8 +72,12 @@ router.post('/', limiter, asyncHandler(async (req, res) => {
 
 // ---- admin ----
 router.get('/', protect, asyncHandler(async (req, res) => {
-  const { status = 'new', page = 1, limit = 20 } = req.query
+  const { status = 'new', q, page = 1, limit = 20 } = req.query
   const filter = status === 'all' ? {} : { status }
+  if (q && String(q).trim()) {
+    const rx = new RegExp(String(q).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
+    filter.$or = [{ name: rx }, { phone: rx }]
+  }
   const p = Math.max(1, Number(page) || 1)
   const l = Math.min(100, Math.max(1, Number(limit) || 20))
 

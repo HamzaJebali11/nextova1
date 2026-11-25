@@ -2,14 +2,31 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { api } from '../../lib/api'
-import { getUtm } from '../../lib/utm'
+import { getUtm, getAttribution } from '../../lib/utm'
+import { getAngle } from '../../lib/angle'
 import { track } from '../../lib/pixel'
 import { deliveryFor } from '../../lib/delivery'
 import { hasOffer, clearOffer } from '../../lib/offer'
 import { AREAS } from '../areas'
 import { useStore } from '../storeContext'
+import { friendlyError } from '../friendlyError'
+import { isValidQatarPhone, toLocalDigits } from '../../lib/phone'
 
-const phoneOk = (v) => /^[3567]\d{7}$/.test(v)
+const EMPTY = { name: '', phone: '', area: '', zone: '', street: '', building: '', address: '', notes: '', website: '' }
+const DRAFT = 'nx_order_draft' // what the customer typed, kept for this tab until the order is placed
+
+function loadDraft() {
+  try {
+    const d = JSON.parse(sessionStorage.getItem(DRAFT) || '{}')
+    const clean = Object.fromEntries(Object.keys(EMPTY).filter((k) => k !== 'website' && typeof d[k] === 'string').map((k) => [k, d[k]]))
+    return { ...EMPTY, ...clean }
+  } catch {
+    return { ...EMPTY }
+  }
+}
+
+// 8 local digits (the +974 is shown in front); obvious fakes such as 55555555 or 56789012 are refused
+const phoneOk = (v) => isValidQatarPhone(v)
 const codeOk = (v) => /^[0-9A-Za-z/-]{1,10}$/.test(v.trim())
 
 function Field({ label, error, children }) {
@@ -17,7 +34,7 @@ function Field({ label, error, children }) {
     <label className="block">
       <span className="mb-1 block text-sm font-medium">{label}</span>
       {children}
-      {error && <span className="mt-1 block text-xs text-red-600">{error}</span>}
+      {error && <span role="alert" className="mt-1 block text-xs text-red-600">{error}</span>}
     </label>
   )
 }
@@ -31,9 +48,8 @@ const inputCls = (err) =>
 export default function OrderForm({ lines, onPlaced }) {
   const { t, lang, money, settings } = useStore()
   const navigate = useNavigate()
-  const [f, setF] = useState({
-    name: '', phone: '', area: '', zone: '', street: '', building: '', address: '', notes: '', website: '',
-  })
+  // the form comes back filled after closing the pop-up, a reload or a failed request (never lost)
+  const [f, setF] = useState(loadDraft)
   const [errors, setErrors] = useState({})
   const [serverError, setServerError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -44,6 +60,15 @@ export default function OrderForm({ lines, onPlaced }) {
   useEffect(() => { linesRef.current = lines })
 
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
+  useEffect(() => {
+    try {
+      const { website, ...draft } = f
+      void website
+      sessionStorage.setItem(DRAFT, JSON.stringify(draft))
+    } catch { /* storage blocked: the form still works */ }
+  }, [f])
+
+
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0)
   const percent = settings.exitOffer?.enabled && hasOffer() ? Number(settings.exitOffer.percent) || 0 : 0
   const discount = percent ? Math.round(subtotal * percent) / 100 : 0
@@ -65,6 +90,7 @@ export default function OrderForm({ lines, onPlaced }) {
         items: current.map((l) => ({ productId: l.productId, variantName: l.variantName || undefined, qty: l.qty })),
         total: Math.round(current.reduce((s, l) => s + l.price * l.qty, 0) * 100) / 100,
         utm: getUtm(),
+        angle: getAngle(),
         website: f.website,
       }
       const signature = JSON.stringify(body)
@@ -113,6 +139,8 @@ export default function OrderForm({ lines, onPlaced }) {
           offer: percent > 0 ? true : undefined,
           source: 'website',
           utm: getUtm(),
+          attribution: getAttribution(), // first-touch ad data + Meta cookies (lib/utm.js)
+          angle: getAngle(), // ad angle page this visit came through (lib/angle.js)
           website: f.website,
         },
       })
@@ -122,11 +150,16 @@ export default function OrderForm({ lines, onPlaced }) {
         num_items: lines.reduce((n, l) => n + l.qty, 0),
       })
       if (percent > 0) clearOffer()
+      try { sessionStorage.removeItem(DRAFT) } catch { /* optional */ }
+      // the thank-you page leaves these products out of "add more" (this tab only; nothing is sent anywhere)
+      try {
+        sessionStorage.setItem('nx_last_order', JSON.stringify({ n: res.orderNumber, ids: lines.map((l) => l.productId) }))
+      } catch { /* optional */ }
       onPlaced?.()
       navigate(`/order-success?n=${encodeURIComponent(res.orderNumber)}&t=${res.total}`)
     } catch (err) {
       submitted.current = false
-      setServerError(err.details?.map((d) => d.message).join(' · ') || err.message)
+      setServerError(friendlyError(err, t, lang))
     } finally {
       setBusy(false)
     }
@@ -152,13 +185,9 @@ export default function OrderForm({ lines, onPlaced }) {
 
       <Field label={t('phone')} error={errors.phone}>
         <div className="flex" dir="ltr">
-          <span className="grid place-items-center rounded-s-xl border border-e-0 bg-gray-50 px-3 text-sm text-gray-600">+974</span>
-          <input type="tel" inputMode="numeric" autoComplete="tel-national" value={f.phone}
-            onChange={(e) => {
-              let d = e.target.value.replace(/\D/g, '')
-              if (d.startsWith('974') && d.length > 8) d = d.slice(3)
-              set('phone', d.slice(0, 8))
-            }}
+          <span className="grid place-items-center rounded-s-xl border border-e-0 bg-quiet px-3 text-sm text-gray-600">+974</span>
+          <input type="tel" inputMode="tel" autoComplete="tel" dir="ltr" value={f.phone}
+            onChange={(e) => set('phone', toLocalDigits(e.target.value))}
             className={`${inputCls(errors.phone)} rounded-s-none`} placeholder="5512 3456" />
         </div>
       </Field>
@@ -187,10 +216,10 @@ export default function OrderForm({ lines, onPlaced }) {
           onChange={(e) => set('notes', e.target.value)} className={inputCls(false)} />
       </Field>
 
-      <div className="space-y-1 rounded-xl bg-gray-50 p-4 text-sm">
+      <div className="space-y-1 rounded-xl bg-quiet p-4 text-sm">
         <div className="flex justify-between"><span>{t('subtotal')}</span><span>{money(subtotal)}</span></div>
         {discount > 0 && (
-          <div className="flex justify-between text-green-700">
+          <div className="flex justify-between text-ink font-semibold">
             <span>{t('discountLine').replace('{n}', percent)}</span><span>− {money(discount)}</span>
           </div>
         )}
@@ -203,10 +232,10 @@ export default function OrderForm({ lines, onPlaced }) {
         <p className="pt-1 text-xs text-gray-500">{t('codNote')}</p>
       </div>
 
-      {serverError && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{serverError}</div>}
+      {serverError && <div role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{serverError}</div>}
 
       <motion.button whileTap={{ scale: 0.98 }} disabled={busy || lines.length === 0}
-        className="w-full rounded-full bg-emerald-600 py-3.5 font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60">
+        className="min-h-[52px] w-full rounded-full bg-ink py-3.5 font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60">
         {busy ? t('placing') : `${t('placeOrder')} · ${money(total)}`}
       </motion.button>
     </form>

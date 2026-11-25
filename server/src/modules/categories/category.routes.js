@@ -25,7 +25,7 @@ router.post('/', protect, asyncHandler(async (req, res) => {
 router.put('/:id', protect, asyncHandler(async (req, res) => {
   const update = { ...req.body }
   if (update.slug) update.slug = await uniqueSlug(Category, update.slug, req.params.id)
-  const doc = await Category.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true })
+  const doc = await Category.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after', runValidators: true })
   if (!doc) return res.status(404).json({ message: 'Category not found' })
   res.json(doc)
 }))

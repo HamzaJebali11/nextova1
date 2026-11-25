@@ -9,6 +9,7 @@ export async function sendOrderEmail(order, settings = {}) {
   const key = process.env.RESEND_API_KEY
   const recipients = (process.env.NOTIFY_EMAIL || '').split(',').map((s) => s.trim()).filter(Boolean)
   if (!key || recipients.length === 0) return // email not set up yet: skip quietly
+  if (process.env.MAIL_DRY_RUN === '1') return console.log(`[email not sent: MAIL_DRY_RUN] new order ${order.orderNumber}`)
 
   const cur = settings.currency || 'QAR'
   const c = order.customer

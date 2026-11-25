@@ -68,8 +68,8 @@ export default function RecentOrderPopup() {
           exit={{ opacity: 0, y: 30 }} transition={{ type: 'spring', stiffness: 260, damping: 22 }}
           className={`fixed start-4 z-30 w-72 max-w-[calc(100vw_-_6.5rem)] ${onProduct ? 'bottom-24 md:bottom-5' : 'bottom-5'}`}>
           <Link to={o.product.slug ? `/product/${o.product.slug}` : '/shop'}
-            className="flex items-center gap-3 rounded-2xl bg-white p-3 pe-9 shadow-xl ring-1 ring-black/5">
-            <img src={optimizeImg(o.product.image, 120)} alt="" className="h-14 w-14 shrink-0 rounded-xl bg-gray-100 object-cover" />
+            className="flex items-center gap-3 rounded-2xl bg-white p-3 pe-9 shadow-e3 ring-1 ring-black/5">
+            <img src={optimizeImg(o.product.image, 120)} alt="" width={56} height={56} className="h-14 w-14 shrink-0 rounded-xl bg-quiet object-cover" />
             <div className="min-w-0 text-xs leading-snug">
               <div className="truncate text-gray-600">
                 <b className="text-gray-900">{o.firstName}</b>
@@ -80,7 +80,7 @@ export default function RecentOrderPopup() {
             </div>
           </Link>
           <button onClick={dismiss} aria-label={t('close')}
-            className="absolute end-2 top-2 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+            className="absolute end-2 top-2 rounded-full p-1 text-gray-400 hover:bg-quiet hover:text-gray-700">
             <X size={14} />
           </button>
         </motion.div>

@@ -5,9 +5,73 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Nextova</title>
+<!-- defaults for search engines and link previews (WhatsApp / Facebook read only these static tags);
+     each page replaces title / description / og tags after it loads (src/lib/seo.js) -->
+<meta name="description" content="Carefully picked products with fast delivery across Qatar. Cash on delivery." />
+<meta property="og:site_name" content="Nextova" />
+<meta property="og:title" content="Nextova" />
+<meta property="og:description" content="Carefully picked products with fast delivery across Qatar. Cash on delivery." />
+<meta property="og:type" content="website" />
+<meta name="theme-color" content="#ffffff" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<!-- product pictures come from Cloudinary: open the connection early -->
+<link rel="preconnect" href="https://res.cloudinary.com" />
+<!-- only the weights the store uses (Fraunces: product titles at 500). Loaded without blocking the first paint:
+     the text shows at once in the system font and swaps when the fonts arrive (display=swap). -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Fraunces:opsz,wght@9..144,500&family=Inter:wght@400;500;600;700;800&display=swap" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Fraunces:opsz,wght@9..144,500&family=Inter:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'" />
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Fraunces:opsz,wght@9..144,500&family=Inter:wght@400;500;600;700;800&display=swap" /></noscript>
+<script>
+  /* Arabic: right-to-left from the very first paint (the app sets it again; this avoids a mirrored jump) */
+  (function () {
+    try {
+      var q = new URLSearchParams(location.search).get('lang')
+      var l = q === 'ar' || q === 'en' ? q : localStorage.getItem('nx_lang')
+      if (l === 'ar' && location.pathname.indexOf('/admin') !== 0) { document.documentElement.lang = 'ar'; document.documentElement.dir = 'rtl' }
+    } catch (e) { /* storage blocked: the app still sets it */ }
+  })()
+</script>
+<script>
+  /* Speed: on a product link, ask for the product and settings (and preload the first photo) while the
+     page is still loading, before the app's JavaScript arrives. src/lib/prefetch.js picks these up.
+     No custom headers, so a cross-origin API answers without an extra CORS preflight round-trip. */
+  (function () {
+    try {
+      var api = '%VITE_API_URL%'
+      if (api.charAt(0) === '%') api = '' // not set (local dev): same origin
+      var base = api + '/api/v1'
+      var get = function (p) {
+        return fetch(base + p, { credentials: 'omit' }).then(function (r) {
+          if (!r.ok || (r.headers.get('content-type') || '').indexOf('application/json') < 0) throw new Error('prefetch failed')
+          return r.json()
+        })
+      }
+      var early = (window.__nxPrefetch = {})
+      if (location.pathname.indexOf('/admin') === 0) return
+      early['/settings'] = get('/settings')
+      early['/events/active'] = get('/events/active') // sales event banner (avoids a late jump)
+      var m = location.pathname.match(/^\/product\/([^\/?#]+)/)
+      if (!m) return
+      // an ad-angle link can show its own first picture: do not preload the product's one
+      var angled = /[?&]angle=/.test(location.search)
+      var path = '/products/' + decodeURIComponent(m[1])
+      early[path] = get(path)
+      early[path].then(function (d) {
+        var url = d && d.product && d.product.images && d.product.images[0] && d.product.images[0].url
+        if (angled || !url || url.indexOf('res.cloudinary.com') < 0 || url.indexOf('/upload/') < 0) return
+        var link = document.createElement('link')
+        link.rel = 'preload'; link.as = 'image'; link.setAttribute('fetchpriority', 'high')
+        link.setAttribute('data-preload', url)
+        link.setAttribute('imagesrcset', [360, 540, 720, 960, 1280].map(function (w) {
+          return url.replace('/upload/', '/upload/f_auto,q_auto,c_limit,w_' + w + '/') + ' ' + w + 'w'
+        }).join(', '))
+        link.setAttribute('imagesizes', '(min-width: 768px) 50vw, 100vw')
+        document.head.appendChild(link)
+      }).catch(function () {})
+    } catch (e) { /* only a speed-up */ }
+  })()
+</script>
 <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="shortcut icon" href="/favicon.ico" />

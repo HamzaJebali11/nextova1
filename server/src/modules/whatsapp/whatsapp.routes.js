@@ -11,7 +11,7 @@ const RANK = { sent: 1, delivered: 2, read: 3 }
 router.get('/webhook', (req, res) => {
   const token = req.query['hub.verify_token']
   if (req.query['hub.mode'] === 'subscribe' && token && token === process.env.WHATSAPP_VERIFY_TOKEN) {
-    return res.status(200).send(req.query['hub.challenge'])
+    return res.status(200).type('text/plain').send(String(req.query['hub.challenge'] || ''))
   }
   res.sendStatus(403)
 })

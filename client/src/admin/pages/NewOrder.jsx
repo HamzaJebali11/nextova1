@@ -4,6 +4,7 @@ import { Plus, Trash2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { money, STATUSES } from '../../lib/constants'
 import { AREAS } from '../../store/areas'
+import { isValidQatarPhone, normalizeQatarPhone } from '../../lib/phone'
 
 const SOURCES = [['whatsapp', 'WhatsApp'], ['messenger', 'Messenger'], ['instagram', 'Instagram'], ['phone', 'Phone call'], ['other', 'Other']]
 const inputCls = 'w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-900'
@@ -27,6 +28,7 @@ export default function NewOrder() {
   const [source, setSource] = useState('whatsapp')
   const [status, setStatus] = useState('new')
   const [takeStock, setTakeStock] = useState(true)
+  const [phoneOverride, setPhoneOverride] = useState(false)
   const [customer, setCustomer] = useState(blankCustomer)
   const [items, setItems] = useState([blankItem()])
   const [deliveryFee, setDeliveryFee] = useState('0')
@@ -93,7 +95,7 @@ export default function NewOrder() {
         body: {
           customer: {
             name: customer.name,
-            phone: customer.phone,
+            phone: normalizeQatarPhone(customer.phone) || customer.phone.trim(),
             area: AREAS.find((a) => a.id === customer.area)?.en,
             zone: customer.zone,
             street: customer.street,
@@ -116,10 +118,12 @@ export default function NewOrder() {
           date: past ? date : undefined,
           takeStock,
           adminNotes: adminNotes || undefined,
+          phoneOverride,
         },
       })
       setDone(res)
       setCustomer(blankCustomer)
+      setPhoneOverride(false)
       setItems([blankItem()])
       setDiscount('0')
       setAdminNotes('')
@@ -149,14 +153,14 @@ export default function NewOrder() {
       </div>
 
       {past && (
-        <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+        <div className="rounded-xl bg-gray-100 p-3 text-sm text-ink">
           Past sale mode: the order gets the date you choose, is marked delivered, does <b>not</b> change today's stock, and sends no messages.
           Its revenue and profit appear on that date in your dashboard.
         </div>
       )}
 
       {done && (
-        <div className="rounded-xl bg-green-50 p-3 text-sm text-green-800">
+        <div className="rounded-xl bg-gray-100 p-3 text-sm text-ink">
           Saved as <b>{done.orderNumber}</b> ({money(done.total)}). You can add the next one below.{' '}
           <Link to="/admin/orders" className="font-semibold underline">See orders</Link>
         </div>
@@ -190,15 +194,19 @@ export default function NewOrder() {
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Name *"><input required className={inputCls} value={customer.name} onChange={(e) => setC('name', e.target.value)} /></Field>
           <Field label={past ? 'Mobile (optional for old sales)' : 'Mobile *'}>
-            <div className="flex" dir="ltr">
-              <span className="grid place-items-center rounded-s-lg border border-e-0 bg-gray-50 px-3 text-sm text-gray-600">+974</span>
-              <input inputMode="numeric" className={`${inputCls} rounded-s-none`} value={customer.phone}
-                onChange={(e) => {
-                  let d = e.target.value.replace(/\D/g, '')
-                  if (d.startsWith('974') && d.length > 8) d = d.slice(3)
-                  setC('phone', d.slice(0, 8))
-                }} />
-            </div>
+            <input type="tel" inputMode="tel" autoComplete="off" dir="ltr" placeholder="5512 3456 or +974 5512 3456"
+              className={inputCls} value={customer.phone} maxLength={24}
+              onChange={(e) => { setC('phone', e.target.value); setPhoneOverride(false) }} />
+            {customer.phone.trim() && !isValidQatarPhone(customer.phone) && (
+              <div className="mt-1 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">
+                Not a valid Qatar mobile number (8 digits starting with 3, 5, 6 or 7).
+                <label className="mt-1 flex items-center gap-2 font-medium">
+                  <input type="checkbox" checked={phoneOverride} onChange={(e) => setPhoneOverride(e.target.checked)} />
+                  Use this number anyway
+                </label>
+              </div>
+            )}
+            {isValidQatarPhone(customer.phone) && <div className="mt-1 text-xs text-gray-500">Saved as {normalizeQatarPhone(customer.phone)}</div>}
           </Field>
           <Field label="Area">
             <select className={inputCls} value={customer.area} onChange={(e) => setC('area', e.target.value)}>
@@ -264,7 +272,7 @@ export default function NewOrder() {
         </Field>
       </section>
 
-      <button disabled={busy} className="rounded-lg bg-gray-900 px-6 py-3 font-semibold text-white hover:bg-gray-700 disabled:opacity-60">
+      <button disabled={busy} className="rounded-lg px-6 py-3 bg-accent font-bold text-white hover:bg-accent-hover disabled:opacity-60">
         {busy ? 'Saving…' : past ? 'Save past sale' : 'Save order'}
       </button>
     </form>

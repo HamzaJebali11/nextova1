@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
+import { fetchOnce } from '../lib/prefetch'
 import { dict } from './i18n'
 import { extra } from './i18nExtra'
 import { StoreCtx } from './storeContext'
@@ -12,6 +13,7 @@ const merged = {
 export function StoreProvider({ children }) {
   const [settings, setSettings] = useState({})
   const [categories, setCategories] = useState([])
+  const [event, setEvent] = useState(null) // live sales event (display only)
   // a link ending in ?lang=ar opens the store in Arabic (and remembers it)
   const [lang, setLang] = useState(() => {
     const q = new URLSearchParams(window.location.search).get('lang')
@@ -20,12 +22,19 @@ export function StoreProvider({ children }) {
   })
 
   useEffect(() => {
-    api('/settings')
+    fetchOnce('/settings')
       .then((d) => setSettings(d && typeof d === 'object' ? d : {}))
       .catch(() => {})
     api('/categories')
       .then((d) => setCategories(Array.isArray(d) ? d : []))
       .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const load = () => fetchOnce('/events/active').then((d) => setEvent(d && d.endsAt ? d : null)).catch(() => {})
+    load()
+    const id = setInterval(load, 5 * 60 * 1000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
@@ -43,6 +52,7 @@ export function StoreProvider({ children }) {
     return {
       settings,
       categories,
+      event,
       lang,
       toggleLang: () => setLang((l) => (l === 'ar' ? 'en' : 'ar')),
       t: (key) => merged[lang]?.[key] ?? merged.en[key] ?? key,
@@ -52,7 +62,7 @@ export function StoreProvider({ children }) {
         return lang === 'ar' && cur === 'QAR' ? `${v} ر.ق` : `${cur} ${v}`
       },
     }
-  }, [settings, categories, lang])
+  }, [settings, categories, event, lang])
 
   return <StoreCtx.Provider value={value}>{children}</StoreCtx.Provider>
 }

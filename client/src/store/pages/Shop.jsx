@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { SlidersHorizontal, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useStore } from '../storeContext'
+import { usePageMeta } from '../../lib/seo'
 import ProductGrid from '../components/ProductGrid'
 import Suggestions from '../components/Suggestions'
 
@@ -15,7 +16,7 @@ const SORTS = [
 ]
 
 export default function Shop() {
-  const { t, pick, categories } = useStore()
+  const { t, pick, categories, settings } = useStore()
   const [sp, setSp] = useSearchParams()
   const [result, setResult] = useState({ qs: null, items: [], total: 0, pages: 1 })
   const [showFilters, setShowFilters] = useState(false)
@@ -46,6 +47,8 @@ export default function Shop() {
   const q = sp.get('q')
   const activeCat = categories.find((c) => c.slug === sp.get('category'))
   const heading = q ? `${t('resultsFor')} “${q}”` : activeCat ? pick(activeCat.name) : t('shop')
+  // search results are not indexed (endless combinations); shop and category pages are
+  usePageMeta({ title: `${heading} | ${settings.storeName || 'Nextova'}`, description: t('heroSub'), robots: q ? 'noindex' : undefined })
 
   const chips = [
     q && { key: 'q', label: `“${q}”` },
@@ -58,11 +61,11 @@ export default function Shop() {
 
   const catCls = (active) =>
     `block w-full rounded-xl px-3 py-2 text-start text-sm transition ${
-      active ? 'bg-emerald-50 font-semibold text-emerald-700' : 'hover:bg-gray-100'
+      active ? 'bg-emerald-50 font-semibold text-emerald-700' : 'hover:bg-quiet'
     }`
 
   const priceInput = (name, placeholder) => (
-    <input key={`${name}-${sp.get(name)}`} type="number" min="0" placeholder={placeholder}
+    <input key={`${name}-${sp.get(name)}`} type="number" min="0" placeholder={placeholder} aria-label={`${t('price')} ${placeholder}`}
       defaultValue={sp.get(name) || ''}
       onBlur={(e) => { if (e.target.value !== (sp.get(name) || '')) update({ [name]: e.target.value }) }}
       onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
@@ -70,11 +73,12 @@ export default function Shop() {
   )
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
-      <div className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-gray-900 to-emerald-900 p-6 text-white md:p-8">
-        <div className="absolute -end-8 -top-8 h-40 w-40 rounded-full bg-emerald-400/20 blur-2xl" />
-        <h1 className="relative text-2xl font-bold md:text-4xl">{heading}</h1>
-        <p className="relative mt-1 text-sm text-gray-300">{loading ? '…' : `${result.total} ${t('results')}`}</p>
+    <div className="mx-auto max-w-[1180px] px-4 md:px-6 py-8">
+      {/* Title banner: light orange (one of the only two orange places in the store), straight on the white
+          page, same width as the product grid; nothing behind it, so no blur */}
+      <div className="mb-8 rounded-[20px] border border-[rgba(255,255,255,0.55)] bg-[rgba(255,106,26,0.30)] p-5 text-[#111111] shadow-[0_10px_30px_rgba(17,17,17,0.10)] md:p-7">
+        <h1 className="text-2xl font-bold tracking-tight md:text-4xl">{heading}</h1>
+        <p className="mt-1 text-sm text-[#111111]/80">{loading ? '…' : `${result.total} ${t('results')}`}</p>
       </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
@@ -98,7 +102,7 @@ export default function Shop() {
       <div className="grid gap-8 lg:grid-cols-[16rem_1fr]">
         <aside className={`${showFilters ? 'block' : 'hidden'} h-fit space-y-6 rounded-3xl border bg-white p-5 lg:sticky lg:top-24 lg:block`}>
           <div>
-            <h3 className="mb-2 font-semibold">{t('categories')}</h3>
+            <h2 className="mb-2 text-base font-semibold">{t('categories')}</h2>
             <ul className="space-y-1">
               <li><button onClick={() => update({ category: '' })} className={catCls(!sp.get('category'))}>{t('allCategories')}</button></li>
               {categories.map((c) => (
@@ -112,7 +116,7 @@ export default function Shop() {
           </div>
 
           <div>
-            <h3 className="mb-2 font-semibold">{t('price')}</h3>
+            <h2 className="mb-2 text-base font-semibold">{t('price')}</h2>
             <div className="flex items-center gap-2">
               {priceInput('minPrice', t('min'))}
               <span className="text-gray-400">–</span>

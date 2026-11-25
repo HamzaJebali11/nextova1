@@ -9,7 +9,7 @@ export default function VariantPicker({ variants, picks, onPick, onSame, onSoldO
   const many = picks.length > 1
 
   return (
-    <div className="mt-5">
+    <div>
       <div className="mb-2 flex items-center justify-between text-sm">
         <span className="font-medium">{many ? t('chooseEach') : t('option')}</span>
         {many && (
@@ -36,7 +36,7 @@ export default function VariantPicker({ variants, picks, onPick, onSame, onSoldO
                     className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition ${
                       selected ? 'border-gray-900 bg-gray-900 text-white' : 'hover:border-gray-900'
                     } ${soldOut || full ? 'opacity-50' : ''} ${soldOut ? 'line-through' : ''}`}>
-                    {v.image && <img src={optimizeImg(v.image, 60)} alt="" className="h-6 w-6 rounded-full object-cover" />}
+                    {v.image && <img src={optimizeImg(v.image, 60)} alt="" width={24} height={24} className="h-6 w-6 rounded-full object-cover" />}
                     {v.name}
                   </button>
                 )

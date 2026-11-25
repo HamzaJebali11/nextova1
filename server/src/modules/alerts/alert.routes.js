@@ -15,15 +15,12 @@ const limiter = rateLimit({
   message: { message: 'Too many requests, please try again later' },
 })
 
-const qatarPhone = /^(?:\+?974)?[3567]\d{7}$/
+import { qatarPhoneField } from '../../utils/phone.js'
 
 const schema = z.object({
   productId: z.string().length(24),
   variantName: z.string().max(80).optional(),
-  phone: z.string().trim()
-    .transform((s) => s.replace(/[\s-]/g, ''))
-    .refine((s) => qatarPhone.test(s), 'Enter a valid Qatar mobile number')
-    .transform((s) => '+974' + s.slice(-8)),
+  phone: qatarPhoneField(),
   lang: z.enum(['en', 'ar']).default('en'),
   website: z.string().optional(), // hidden spam trap
 })

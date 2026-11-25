@@ -17,6 +17,12 @@ import statsRoutes from './modules/stats/stats.routes.js'
 import alertRoutes from './modules/alerts/alert.routes.js'
 import countsRoutes from './modules/counts/counts.routes.js'
 import healthRoutes from './modules/health/health.routes.js'
+import planRoutes from './modules/plans/plan.routes.js'
+import eventRoutes from './modules/events/event.routes.js'
+import sitemapRoutes from './modules/sitemap/sitemap.routes.js'
+import customerRoutes from './modules/customers/customer.routes.js'
+import reportRoutes from './modules/reports/report.routes.js'
+import systemRoutes from './modules/system/system.routes.js'
 const router = Router()
 
 router.use('/auth', authRoutes)
@@ -36,6 +42,12 @@ router.use('/whatsapp', whatsappRoutes)
 router.use('/stats', statsRoutes)
 router.use('/alerts', alertRoutes)
 router.use('/counts', countsRoutes)
-router.use('/health', healthRoutes)
+router.use('/business-health', healthRoutes) // admin Business health (/health is the public 'server is up' check in index.js)
+router.use('/plans', planRoutes) // admin-only planner (never touches real data)
+router.use('/sitemap.xml', sitemapRoutes) // public, for search engines
+router.use('/events', eventRoutes) // sales events: display only, never change prices
+router.use('/customers', customerRoutes) // admin: customers built from orders + block list
+router.use('/reports', reportRoutes)     // admin: delivery performance and profit reports
+router.use('/system', systemRoutes)       // errors (client reports are public, rate limited) and admin System status
 
 export default router

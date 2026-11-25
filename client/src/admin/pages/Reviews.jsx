@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { ImagePlus, Trash2, X } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uploadImage } from '../../lib/upload'
 import { optimizeImg } from '../../lib/image'
 import { fmtDate } from '../../lib/constants'
 import { Stars, StarInput } from '../../store/components/Stars'
+import { FilterChip, ListTable, PageHeader, Pager, SearchBox, SidePanel, Tag, Th, Toolbar } from '../components/ListKit'
+import { btn } from '../components/listStyles'
 
 const TABS = [['pending', 'Pending'], ['approved', 'Approved'], ['rejected', 'Rejected'], ['', 'All']]
 const inputCls = 'w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-900'
 
 function AddReview({ products, onAdded }) {
-  const blank = { productId: '', name: '', rating: 0, title: '', comment: '', verified: false }
+  const blank = { productId: '', name: '', rating: 0, title: '', comment: '', orderNumber: '' }
   const [f, setF] = useState(blank)
   const [images, setImages] = useState([])
   const [uploading, setUploading] = useState(false)
@@ -52,8 +55,8 @@ function AddReview({ products, onAdded }) {
   }
 
   return (
-    <form onSubmit={submit} className="mb-6 space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
-      <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+    <form onSubmit={submit} className="space-y-4">
+      <p className="rounded-lg bg-gray-100 p-3 text-sm text-ink">
         Only add real feedback that real customers sent you (for example on WhatsApp or Messenger), and ask for their permission first.
         Do not write reviews yourself: it misleads customers and can get your ads rejected.
       </p>
@@ -87,148 +90,156 @@ function AddReview({ products, onAdded }) {
         )}
       </div>
 
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={f.verified} onChange={(e) => set('verified', e.target.checked)} />
-          Mark as verified buyer (only if you know they bought it)
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium">Order number (optional)</span>
+          <input className={`${inputCls} w-44 font-mono`} placeholder="NX-1023" value={f.orderNumber}
+            onChange={(e) => set('orderNumber', e.target.value.toUpperCase())} />
+          <span className="mt-1 block max-w-xs text-xs text-gray-500">
+            Shown as “Verified buyer” only when linked to a real order that contains this product.
+          </span>
         </label>
-        <button disabled={uploading} className="rounded-lg bg-gray-900 px-5 py-2 text-white hover:bg-gray-700 disabled:opacity-60">Add review</button>
+        <button disabled={uploading} className="rounded-lg bg-accent px-5 py-2 font-bold text-white hover:bg-accent-hover disabled:opacity-60">Save review</button>
       </div>
     </form>
   )
 }
 
+const TONE = { pending: 'ink', approved: 'outline', rejected: 'danger' }
+
 export default function Reviews() {
   const [tab, setTab] = useState('pending')
   const [page, setPage] = useState(1)
+  const [q, setQ] = useState('')
   const [data, setData] = useState({ items: [], pages: 1, total: 0, pending: 0 })
+  const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState([])
-  const [showForm, setShowForm] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [open, setOpen] = useState(null)
 
   const load = useCallback(async () => {
     const params = new URLSearchParams({ page })
     if (tab) params.set('status', tab)
-    setData(await api(`/reviews/admin/all?${params}`))
+    setLoading(true)
+    try {
+      setData(await api(`/reviews/admin/all?${params}`))
+    } catch (error) {
+      console.error('Failed to load reviews:', error)
+    } finally {
+      setLoading(false)
+    }
   }, [tab, page])
 
   useEffect(() => {
-  let cancelled = false
+    const t = setTimeout(load, 0)
+    return () => clearTimeout(t)
+  }, [load])
 
-  const fetchData = async () => {
+  useEffect(() => {
+    let cancelled = false
+    api('/products/admin/all?limit=100')
+      .then((d) => { if (!cancelled) setProducts(d.items) })
+      .catch((error) => console.error('Failed to load all products:', error))
+    return () => { cancelled = true }
+  }, [])
+
+  async function setStatus(r, status) {
     try {
-      await load()
-    } catch (error) {
-      if (!cancelled) {
-        console.error('Failed to load products:', error)
-      }
-    }
+      await api(`/reviews/${r._id}/status`, { method: 'PATCH', body: { status } })
+      if (open?._id === r._id) setOpen({ ...open, status })
+      load()
+    } catch (e) { alert(e.message) }
   }
 
-  fetchData()
-
-  return () => {
-    cancelled = true
-  }
-}, [load])
-
-useEffect(() => {
-  let cancelled = false
-
-  const fetchProducts = async () => {
-    try {
-      const data = await api('/products/admin/all?limit=100')
-
-      if (!cancelled) {
-        setProducts(data.items)
-      }
-    } catch (error) {
-      if (!cancelled) {
-        console.error('Failed to load all products:', error)
-      }
-    }
-  }
-
-  fetchProducts()
-
-  return () => {
-    cancelled = true
-  }
-}, [])
-
-  async function setStatus(id, status) {
-    try { await api(`/reviews/${id}/status`, { method: 'PATCH', body: { status } }); load() } catch (e) { alert(e.message) }
-  }
-
-  async function remove(id) {
+  async function remove(r) {
     if (!confirm('Delete this review?')) return
-    try { await api(`/reviews/${id}`, { method: 'DELETE' }); load() } catch (e) { alert(e.message) }
+    try {
+      await api(`/reviews/${r._id}`, { method: 'DELETE' })
+      setOpen(null)
+      load()
+    } catch (e) { alert(e.message) }
   }
+
+  // search inside the loaded page (name, product, title, comment)
+  const needle = q.trim().toLowerCase()
+  const rows = needle
+    ? data.items.filter((r) => [r.name, r.product?.name?.en, r.title, r.comment].some((x) => (x || '').toLowerCase().includes(needle)))
+    : data.items
+
+  const actions = (r) => (
+    <div className="flex flex-wrap gap-2">
+      {r.status !== 'approved' && <button onClick={() => setStatus(r, 'approved')} className={btn.dark}>Approve</button>}
+      {r.status !== 'rejected' && <button onClick={() => setStatus(r, 'rejected')} className={btn.ghost}>Reject</button>}
+      <button onClick={() => remove(r)} className={btn.danger}><Trash2 size={14} /> Delete</button>
+    </div>
+  )
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Reviews</h1>
-        <button onClick={() => setShowForm(!showForm)} className="rounded-lg bg-gray-900 px-4 py-2 text-white hover:bg-gray-700">
-          {showForm ? 'Close' : 'Add a real customer review'}
-        </button>
-      </div>
+      <PageHeader title="Reviews" subtitle="Approve what customers send, and add real feedback they gave you elsewhere."
+        actions={<button onClick={() => setAdding(true)} className={btn.dark}>Add a real customer review</button>} />
 
-      {showForm && <AddReview products={products} onAdded={() => { setShowForm(false); load() }} />}
-
-      <div className="mb-4 flex flex-wrap gap-2">
+      <Toolbar>
         {TABS.map(([value, label]) => (
-          <button key={value} onClick={() => { setTab(value); setPage(1) }}
-            className={`rounded-full px-4 py-1.5 text-sm ${tab === value ? 'bg-gray-900 text-white' : 'border bg-white hover:bg-gray-100'}`}>
-            {label}{value === 'pending' && data.pending > 0 ? ` (${data.pending})` : ''}
-          </button>
+          <FilterChip key={value} active={tab === value} onClick={() => { setTab(value); setPage(1) }}
+            count={value === 'pending' ? data.pending : 0} alert={value === 'pending'}>
+            {label}
+          </FilterChip>
         ))}
-      </div>
+        <SearchBox value={q} onChange={setQ} placeholder="Name, product or text" className="w-full md:ms-auto md:w-64" />
+      </Toolbar>
 
-      <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-        {data.items.length === 0 && <div className="p-6 text-gray-500">No reviews here.</div>}
-        <ul className="divide-y">
-          {data.items.map((r) => (
-            <li key={r._id} className="p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-3">
-                  <Stars value={r.rating} />
-                  <span className="font-semibold">{r.name}</span>
-                  <span className="text-xs text-gray-400">{fmtDate(r.createdAt)} · {r.source}{r.verified ? ' · verified' : ''}</span>
-                </div>
-                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                  r.status === 'approved' ? 'bg-green-100 text-green-700'
-                  : r.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>{r.status}</span>
-              </div>
-              <div className="mt-1 text-xs text-gray-500">{r.product?.name?.en}</div>
-              {r.title && <div className="mt-2 font-medium">{r.title}</div>}
-              {r.comment && <p className="mt-1 whitespace-pre-line text-sm text-gray-600">{r.comment}</p>}
-              {r.images?.length > 0 && (
-                <div className="mt-2 flex gap-2">
-                  {r.images.map((im) => (
-                    <a key={im.url} href={im.url} target="_blank" rel="noreferrer">
-                      <img src={optimizeImg(im.url, 160)} alt="" className="h-16 w-16 rounded-xl object-cover" />
-                    </a>
-                  ))}
-                </div>
-              )}
-              <div className="mt-3 flex flex-wrap gap-2 text-sm">
-                {r.status !== 'approved' && <button onClick={() => setStatus(r._id, 'approved')} className="rounded-lg bg-green-600 px-3 py-1.5 text-white hover:bg-green-700">Approve</button>}
-                {r.status !== 'rejected' && <button onClick={() => setStatus(r._id, 'rejected')} className="rounded-lg border px-3 py-1.5 hover:bg-gray-100">Reject</button>}
-                <button onClick={() => remove(r._id)} className="flex items-center gap-1 rounded-lg border px-3 py-1.5 text-red-600 hover:bg-red-50"><Trash2 size={14} /> Delete</button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <ListTable colSpan={6} loading={loading && data.items.length === 0} empty={rows.length === 0 && 'No reviews here.'} minWidth="56rem"
+        head={<><Th>Rating</Th><Th>Customer</Th><Th>Product</Th><Th>Review</Th><Th>Status</Th><Th end>Actions</Th></>}>
+        {rows.map((r) => (
+          <tr key={r._id} onClick={() => setOpen(r)} className="cursor-pointer align-top hover:bg-gray-50">
+            <td className="p-3"><Stars value={r.rating} size={14} /></td>
+            <td className="p-3">
+              <div className="font-semibold">{r.name}</div>
+              <div className="text-xs text-gray-500">{fmtDate(r.createdAt)} · {r.source}{r.order?.orderNumber ? ` · order ${r.order.orderNumber}` : ''}</div>
+            </td>
+            <td className="p-3 text-gray-700">{r.product?.name?.en || '–'}</td>
+            <td className="max-w-[22rem] p-3">
+              {r.title && <div className="font-medium">{r.title}</div>}
+              <div className="line-clamp-2 text-gray-600">{r.comment}</div>
+              {r.images?.length > 0 && <div className="mt-1 text-xs text-gray-500">{r.images.length} photo(s)</div>}
+            </td>
+            <td className="p-3"><Tag tone={TONE[r.status]}>{r.status}</Tag></td>
+            <td className="p-3" onClick={(e) => e.stopPropagation()}><div className="flex justify-end">{actions(r)}</div></td>
+          </tr>
+        ))}
+      </ListTable>
 
-      <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-        <span>{data.total} review(s)</span>
-        <div className="flex items-center gap-2">
-          <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded-lg border bg-white px-3 py-1.5 disabled:opacity-40">Previous</button>
-          <span>{page} / {data.pages || 1}</span>
-          <button disabled={page >= data.pages} onClick={() => setPage(page + 1)} className="rounded-lg border bg-white px-3 py-1.5 disabled:opacity-40">Next</button>
-        </div>
-      </div>
+      <Pager page={page} pages={data.pages} total={data.total} label="review(s)" onPage={setPage} />
+
+      <AnimatePresence>
+        {open && (
+          <SidePanel key={open._id} title={open.name} onClose={() => setOpen(null)}>
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <Stars value={open.rating} /> <Tag tone={TONE[open.status]}>{open.status}</Tag>
+              {open.order?.orderNumber && <Tag tone="soft">Verified buyer · {open.order.orderNumber}</Tag>}
+            </div>
+            <div className="mb-1 text-sm text-gray-500">{open.product?.name?.en} · {fmtDate(open.createdAt)} · {open.source}</div>
+            {open.title && <div className="mt-3 font-semibold">{open.title}</div>}
+            {open.comment && <p className="mt-1 whitespace-pre-line text-sm text-gray-700">{open.comment}</p>}
+            {open.images?.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {open.images.map((im) => (
+                  <a key={im.url} href={im.url} target="_blank" rel="noreferrer">
+                    <img src={optimizeImg(im.url, 240)} alt="" className="h-24 w-24 rounded-xl object-cover" />
+                  </a>
+                ))}
+              </div>
+            )}
+            <div className="mt-5">{actions(open)}</div>
+          </SidePanel>
+        )}
+        {adding && (
+          <SidePanel key="add" title="Add a real customer review" onClose={() => setAdding(false)}>
+            <AddReview products={products} onAdded={() => { setAdding(false); load() }} />
+          </SidePanel>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import Product from '../products/product.model.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { httpError } from '../../utils/httpError.js'
 import { protect } from '../../middleware/auth.js'
+import { realCostMap } from '../../utils/realCost.js'
 
 const router = Router()
 router.use(protect)
@@ -61,7 +62,10 @@ router.get('/by-product', asyncHandler(async (req, res) => {
 
   const byProduct = Object.fromEntries(sales.map((s) => [String(s._id), s]))
   const ids = [...new Set([...Object.keys(spend), ...Object.keys(byProduct)])].filter((id) => mongoose.isValidObjectId(id))
-  const names = await Product.find({ _id: { $in: ids } }).select('name').lean()
+  const [names, costs] = await Promise.all([
+    Product.find({ _id: { $in: ids } }).select('name').lean(),
+    realCostMap(ids),
+  ])
   const nameOf = Object.fromEntries(names.map((p) => [String(p._id), p.name?.en]))
 
   const rows = ids.map((id) => {
@@ -70,17 +74,23 @@ router.get('/by-product', asyncHandler(async (req, res) => {
     const units = s?.units || 0
     const orders = s?.orderIds?.length || 0
     const revenue = s?.revenue || 0
-    const cogs = s?.cogs || 0
-    const profit = revenue - cogs - ad
+    const c = costs.get(id) // today's real cost (deleted product: the cost saved on its orders)
+    const realCost = c ? c.realCost : units ? (s?.cogs || 0) / units : 0
+    const profit = revenue - realCost * units // ads are inside the real cost, so they are not taken off again
     return {
       id,
       name: nameOf[id] || 'Deleted product',
-      spend: r2(ad),
+      spend: r2(ad),                          // ad spend in the chosen period
+      adSpendTotal: c ? c.adSpendTotal : null, // all-time ad spend used for the real cost
+      unitsPurchased: c ? c.unitsPurchased : null,
+      unitsPurchasedIsDefault: c ? c.unitsPurchasedIsDefault : null,
+      baseCost: c ? c.baseCost : null,
+      adPerUnit: c ? c.adPerUnit : null,
+      realCost: r2(realCost),
+      needsUnits: c ? c.needsUnits : false,
       units,
       orders,
       revenue: r2(revenue),
-      cogs: r2(cogs),
-      adPerUnit: units ? r2(ad / units) : null,
       adPerOrder: orders ? r2(ad / orders) : null,
       profit: r2(profit),
       profitPerUnit: units ? r2(profit / units) : null,
@@ -104,6 +114,42 @@ router.post('/', asyncHandler(async (req, res) => {
     days: d, amount: amt, platform, note, product: product || undefined,
   })
   res.status(201).json(doc)
+}))
+
+// edit an entry (the real cost per unit follows automatically: it is calculated on every request)
+router.put('/:id', asyncHandler(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) throw httpError(400, 'Invalid entry')
+  const { startDate, days, amount, platform, note, product } = req.body
+  const update = {}
+  if (startDate !== undefined) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(startDate))) throw httpError(400, 'Choose a start date')
+    update.startDate = new Date(`${startDate}T00:00:00+03:00`)
+  }
+  if (days !== undefined) {
+    const d = Math.round(Number(days))
+    if (!Number.isFinite(d) || d < 1 || d > 366) throw httpError(400, 'Days must be between 1 and 366')
+    update.days = d
+  }
+  if (amount !== undefined) {
+    const amt = Number(amount)
+    if (!Number.isFinite(amt) || amt < 0) throw httpError(400, 'Enter a valid amount')
+    update.amount = amt
+  }
+  if (platform !== undefined) update.platform = String(platform).slice(0, 40)
+  if (note !== undefined) update.note = String(note).slice(0, 200)
+  const unset = {}
+  if (product !== undefined) {
+    if (product && !mongoose.isValidObjectId(product)) throw httpError(400, 'Invalid product')
+    if (product) update.product = product
+    else unset.product = 1
+  }
+  const doc = await AdSpend.findByIdAndUpdate(
+    req.params.id,
+    { $set: update, ...(Object.keys(unset).length ? { $unset: unset } : {}) },
+    { returnDocument: 'after', runValidators: true },
+  ).populate('product', 'name')
+  if (!doc) return res.status(404).json({ message: 'Entry not found' })
+  res.json(doc)
 }))
 
 router.delete('/:id', asyncHandler(async (req, res) => {

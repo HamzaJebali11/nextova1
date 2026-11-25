@@ -42,8 +42,8 @@ function Table({ title, rows, overall }) {
       <h2 className="mb-3 font-semibold">{title}</h2>
       {rows.length === 0 && <p className="text-sm text-gray-500">No orders in this period.</p>}
       {rows.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[34rem] text-sm">
+        <div className="relative overflow-x-auto">
+          <table className="w-full min-w-[40rem] text-sm">
             <thead>
               <tr className="border-b text-xs text-gray-500">
                 <th className="py-2 text-start">Name</th>
@@ -53,6 +53,7 @@ function Table({ title, rows, overall }) {
                 <th className="text-end">Open</th>
                 <th className="text-end">Delivery rate</th>
                 <th className="text-end">Revenue</th>
+                <th className="text-end" title="Delivered orders: total − units × real cost per unit − shipping">Profit</th>
               </tr>
             </thead>
             <tbody>
@@ -67,6 +68,7 @@ function Table({ title, rows, overall }) {
                     <td className="text-end">{r.open}</td>
                     <td className={`text-end font-semibold ${low ? 'text-red-600' : ''}`}>{rate(r.deliveryRate)}</td>
                     <td className="text-end">{money(r.revenue)}</td>
+                    <td className={`text-end font-semibold ${r.profit < 0 ? 'text-red-700' : ''}`}>{money(r.profit)}</td>
                   </tr>
                 )
               })}
@@ -85,7 +87,7 @@ export default function Business() {
 
   useEffect(() => {
     let cancelled = false
-    api(`/health?days=${days}`)
+    api(`/business-health?days=${days}`)
       .then((d) => { if (!cancelled) setData({ ...d, forDays: days }) })
       .catch((e) => { if (!cancelled) setError(e.message) })
     return () => { cancelled = true }
@@ -132,7 +134,7 @@ export default function Business() {
                     <b>{n}{i > 0 && <span className="ms-2 font-normal text-gray-500">{rate(pctOf(n))} of visitors</span>}</b>
                   </div>
                   <div className="h-3 rounded-full bg-gray-100">
-                    <div className="h-3 rounded-full bg-indigo-500" style={{ width: `${Math.min(100, (n / Math.max(1, f.visitors)) * 100)}%` }} />
+                    <div className="h-3 rounded-full bg-ink" style={{ width: `${Math.min(100, (n / Math.max(1, f.visitors)) * 100)}%` }} />
                   </div>
                 </div>
               ))}
@@ -146,6 +148,8 @@ export default function Business() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Card title="Orders placed" value={p.placed} hint="All sources" />
             <Card title="Delivered" value={p.delivered} hint={money(p.revenue)} />
+            <Card title="Profit on delivered orders" value={money(p.profit)}
+              hint="Total − units × real cost per unit (base cost + product ads) − shipping. Before general ads." />
             <Card title="Returned or cancelled" value={p.returned + p.cancelled} hint={`${rate(p.failRate)} of finished orders`} />
             <Card title="Still open" value={p.open} hint="New, confirmed, on the way" />
             <Card title="Delivery rate" value={rate(p.deliveryRate)} hint="Delivered out of all finished orders" />

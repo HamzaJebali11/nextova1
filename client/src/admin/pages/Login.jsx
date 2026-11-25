@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../useAuth'
+import { usePageMeta } from '../../lib/seo'
 
 export default function Login() {
   const { admin, login } = useAuth()
+  usePageMeta({ title: 'Nextova admin', robots: 'noindex, nofollow' })
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

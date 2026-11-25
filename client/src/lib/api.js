@@ -7,14 +7,22 @@ export const setToken = (t) =>
 
 export async function api(path, { method = 'GET', body } = {}) {
   const token = getToken()
-  const res = await fetch(BASE + path, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  })
+  let res
+  try {
+    res = await fetch(BASE + path, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+  } catch {
+    // offline, server down or blocked: no answer at all
+    const err = new Error('The store could not reach its server. Please check your connection and try again.')
+    err.network = true
+    throw err
+  }
 
   if (res.status === 204) return null
 
@@ -28,10 +36,15 @@ export async function api(path, { method = 'GET', body } = {}) {
     }
     const err = new Error(data.message || 'Request failed')
     err.details = data.errors
+    err.status = res.status
     throw err
   }
 
   // a page that is not JSON means we reached the wrong server (for example the website itself)
-  if (!isJson) throw new Error('The store could not reach its server. Please try again later.')
+  if (!isJson) {
+    const err = new Error('The store could not reach its server. Please try again later.')
+    err.network = true
+    throw err
+  }
   return data
 }

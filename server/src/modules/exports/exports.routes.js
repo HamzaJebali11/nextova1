@@ -1,30 +1,44 @@
 import { Router } from 'express'
+import mongoose from 'mongoose'
 import ExcelJS from 'exceljs'
 import Order from '../orders/order.model.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { protect } from '../../middleware/auth.js'
+import { attributionFilter } from '../../utils/attribution.js'
+import { routeSort } from '../../utils/deliveryRoute.js'
+import { FAIL_REASONS } from '../orders/order.model.js'
+import { FLAGGED } from '../../utils/orderFlags.js'
 
 const router = Router()
 router.use(protect)
 
 const OPEN = ['new', 'confirmed', 'processing', 'out_for_delivery']
 const LABELS = {
-  new: 'New', confirmed: 'Confirmed', processing: 'Processing', out_for_delivery: 'Out for delivery',
-  delivered: 'Delivered', cancelled: 'Cancelled', returned: 'Returned',
+  new: 'New', on_hold: 'Needs confirmation', confirmed: 'Confirmed', processing: 'Processing', out_for_delivery: 'Out for delivery',
+  delivered: 'Delivered', cancelled: 'Cancelled', returned: 'Failed / returned',
 }
 const OFFSET = 3 * 60 * 60 * 1000 // Qatar is UTC+3
+const REASON_LABELS = { refused: 'Refused at the door', no_answer: 'No answer', wrong_address: 'Wrong address or zone', changed_mind: 'Changed mind', other: 'Other' }
 const qDate = (d) => new Date(new Date(d).getTime() + OFFSET).toISOString().slice(0, 10)
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 function buildFilter(query) {
-  const { status, search, from, to, zone, source } = query
+  const { status, search, from, to, zone, source, ids, campaign, ad, angle, event, product, reason, flagged } = query
   const filter = {}
+  // export only the orders you ticked in the list
+  if (ids) {
+    filter._id = { $in: String(ids).split(',').filter((id) => mongoose.isValidObjectId(id)).slice(0, 500) }
+    return filter
+  }
   if (status) {
     const list = String(status).split(',').map((s) => s.trim()).filter(Boolean)
     if (list.length === 1) filter.status = list[0]
     else if (list.length > 1) filter.status = { $in: list }
   }
-  if (zone) filter['customer.zone'] = String(zone).trim()
+  if (zone) {
+    const zones = String(zone).split(',').map((z) => z.trim()).filter(Boolean)
+    filter['customer.zone'] = zones.length > 1 ? { $in: zones } : zones[0]
+  }
   if (source === 'website') filter.source = 'website'
   else if (source === 'other') filter.source = { $ne: 'website' }
   if (search) {
@@ -36,12 +50,26 @@ function buildFilter(query) {
     if (from) filter.createdAt.$gte = new Date(from)
     if (to) filter.createdAt.$lte = new Date(to)
   }
+  const byAd = attributionFilter({ campaign, ad })
+  if (byAd.length) filter.$and = byAd
+  // same as the Orders list: sales event, ad angle and product (any line of the order)
+  if (event && mongoose.isValidObjectId(String(event))) filter['event.id'] = String(event)
+  if (angle === 'none') filter['angle.slug'] = { $exists: false }
+  else if (angle) filter['angle.slug'] = String(angle).toLowerCase()
+  if (product && mongoose.isValidObjectId(String(product))) filter['items.product'] = new mongoose.Types.ObjectId(String(product))
+  if (reason === 'any') filter['failure.reason'] = { $exists: true }
+  else if (FAIL_REASONS.includes(String(reason))) filter['failure.reason'] = String(reason)
+  if (flagged === '1') filter.$and = [...(filter.$and || []), FLAGGED]
   return filter
 }
 
 // ---- Excel file: /api/v1/exports/orders.xlsx?status=new,confirmed&zone=55&from=...&to=...&search=... ----
 router.get('/orders.xlsx', asyncHandler(async (req, res) => {
-  const orders = await Order.find(buildFilter(req.query)).sort({ createdAt: 1 }).limit(5000).lean()
+  let orders = await Order.find(buildFilter(req.query)).sort({ createdAt: 1 }).limit(5000).lean()
+  // the delivery sheet exports in its own order (zone route or oldest first), see utils/deliveryRoute.js
+  if (['route', 'oldest'].includes(req.query.sort)) {
+    orders = routeSort(orders, { mode: req.query.sort, pinOverdue: req.query.pin === '1' })
+  }
 
   const wb = new ExcelJS.Workbook()
   wb.creator = 'Nextova'
@@ -62,6 +90,8 @@ router.get('/orders.xlsx', asyncHandler(async (req, res) => {
     { header: 'Status', key: 'status', width: 16 },
     { header: 'Source', key: 'source', width: 11 },
     { header: 'Notes', key: 'notes', width: 30 },
+    { header: 'Failed reason', key: 'failReason', width: 16 },
+    { header: 'Flags', key: 'flags', width: 22 },
     { header: 'Location link', key: 'location', width: 32 },
     { header: 'Done ✓', key: 'done', width: 9 },
   ]
@@ -85,6 +115,8 @@ router.get('/orders.xlsx', asyncHandler(async (req, res) => {
       status: LABELS[o.status] || o.status,
       source: o.source || 'website',
       notes: o.customer.notes || '',
+      failReason: o.failure?.reason ? `${REASON_LABELS[o.failure.reason] || o.failure.reason}${o.failure.note ? `: ${o.failure.note}` : ''}` : '',
+      flags: [o.flags?.blocked && 'Blocked', o.flags?.failedBefore > 0 && `Failed before (${o.flags.failedBefore})`, o.flags?.duplicate && `Duplicate${o.flags.duplicateOf ? ` of ${o.flags.duplicateOf}` : ''}`].filter(Boolean).join(', '),
       location: o.location?.url || '',
       done: '',
     })

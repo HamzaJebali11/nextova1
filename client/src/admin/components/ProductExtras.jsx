@@ -3,10 +3,16 @@ import { money } from '../../lib/constants'
 
 const inputCls = 'w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-900'
 
-export default function ProductExtras({ f, set }) {
+const r2 = (n) => Math.round(n * 100) / 100
+
+// adSpendTotal: all ad spend linked to this product (from Ads & costs), defaultUnits: stock + sold
+export default function ProductExtras({ f, set, adSpendTotal = 0, defaultUnits = 0 }) {
   const price = Number(f.price) || 0
   const cost = Number(f.costPrice) || 0
-  const unit = price - cost
+  const units = Number(f.unitsPurchased) > 0 ? Number(f.unitsPurchased) : defaultUnits
+  const adPerUnit = units > 0 ? adSpendTotal / units : 0
+  const realCost = r2(cost + adPerUnit)
+  const unit = price - realCost
   const margin = price > 0 ? Math.round((unit / price) * 100) : 0
 
   const setFaq = (i, key, lang, v) =>
@@ -18,16 +24,42 @@ export default function ProductExtras({ f, set }) {
     <>
       <section className="rounded-2xl bg-gray-50 p-4">
         <h3 className="mb-2 font-semibold">Cost and profit <span className="text-xs font-normal text-gray-500">(private, customers never see this)</span></h3>
-        <div className="grid items-end gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-1 block text-sm font-medium">Cost price (QAR)</span>
+            <span className="mb-1 block text-sm font-medium">Base cost per unit (QAR)</span>
             <input type="number" min="0" step="0.01" className={inputCls} value={f.costPrice} onChange={(e) => set('costPrice', e.target.value)} />
+            <span className="mt-1 block text-xs text-gray-500">What one unit costs you to buy. It is not changed by ads.</span>
           </label>
-          <div className="text-sm sm:col-span-2">
-            Profit per unit: <b className={unit >= 0 ? 'text-green-600' : 'text-red-600'}>{money(Math.round(unit * 100) / 100)}</b> ({margin}%)
-            <div className="text-xs text-gray-500">Before shipping and ads. The cost is saved on each order when it is placed.</div>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium">Units purchased (ads cost is spread over these)</span>
+            <input type="number" min="0" step="1" className={inputCls} value={f.unitsPurchased}
+              placeholder={String(defaultUnits)} onChange={(e) => set('unitsPurchased', e.target.value)} />
+            <span className="mt-1 block text-xs text-gray-500">
+              Units bought for the current batch. Empty = stock + sold ({defaultUnits}).
+            </span>
+          </label>
+        </div>
+
+        <div className="mt-3 grid gap-2 rounded-xl bg-white p-3 text-sm sm:grid-cols-4">
+          <div><div className="text-xs text-gray-500">Base cost</div><b>{money(r2(cost))}</b></div>
+          <div>
+            <div className="text-xs text-gray-500">Ads per unit</div>
+            <b>{money(r2(adPerUnit))}</b>
+            <div className="text-[11px] text-gray-500">{money(r2(adSpendTotal))} ÷ {units || 0} units</div>
+          </div>
+          <div><div className="text-xs text-gray-500">Real cost per unit</div><b className="text-base">{money(realCost)}</b></div>
+          <div>
+            <div className="text-xs text-gray-500">Profit per unit</div>
+            <b className={unit >= 0 ? 'text-ink' : 'text-red-600'}>{money(r2(unit))}</b> <span className="text-xs">({margin}%)</span>
           </div>
         </div>
+        {adSpendTotal > 0 && units <= 0 && (
+          <p className="mt-2 text-xs font-semibold text-red-600">This product has ad spend but no units: enter the units purchased.</p>
+        )}
+        <p className="mt-2 text-xs text-gray-500">
+          Real cost per unit = base cost + (all ad spend linked to this product in Ads &amp; costs ÷ units purchased).
+          It updates by itself when you add, edit or delete an ads entry. Profit per unit is at the normal price, before shipping.
+        </p>
       </section>
 
       <section>

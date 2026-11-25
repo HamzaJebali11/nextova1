@@ -6,18 +6,25 @@ import { uploadImage } from '../../lib/upload'
 import { optimizeImg } from '../../lib/image'
 import ProductExtras from './ProductExtras'
 import ProductOffers from './ProductOffers'
+import ProductAngles from './ProductAngles'
+import { anglesToForm, anglesToPayload } from './anglesForm'
 import DescriptionImages from './DescriptionImages'
 import ProductVideoField from './ProductVideo'
 
 const blank = {
   name: { en: '', ar: '' },
   description: { en: '', ar: '' },
+  benefit: { en: '', ar: '' },
+  deliveryInfo: { en: '', ar: '' },
+  returnsInfo: { en: '', ar: '' },
   descriptionImages: { en: [], ar: [] },
   video: { url: '', publicId: '' },
+  videoPosition: 'second',
   category: '',
   price: '',
   compareAtPrice: '',
   costPrice: '',
+  unitsPurchased: '',
     defaultQty: 1,
   stock: 0,
   lowStockAlert: 5,
@@ -27,28 +34,40 @@ const blank = {
   tags: '',
   isActive: true,
   isFeatured: false,
+  bestSeller: 'auto',
   faqs: [],
   comparison: [],
   packs: [],
   freeGift: { enabled: false, product: '', minQty: 1, qty: 1 },
+  angles: [],
 }
 
-const cleanImages = (list) => (list || []).map(({ url, publicId }) => ({ url, publicId }))
+const cleanImages = (list) => (list || []).map(({ url, publicId, title, text }) => ({
+  url,
+  publicId,
+  title: { en: title?.en || '', ar: title?.ar || '' },
+  text: { en: text?.en || '', ar: text?.ar || '' },
+}))
 
 function toForm(p) {
   if (!p) return blank
   return {
     name: { en: p.name?.en || '', ar: p.name?.ar || '' },
     description: { en: p.description?.en || '', ar: p.description?.ar || '' },
+    benefit: { en: p.benefit?.en || '', ar: p.benefit?.ar || '' },
+    deliveryInfo: { en: p.deliveryInfo?.en || '', ar: p.deliveryInfo?.ar || '' },
+    returnsInfo: { en: p.returnsInfo?.en || '', ar: p.returnsInfo?.ar || '' },
     descriptionImages: {
       en: cleanImages(p.descriptionImages?.en),
       ar: cleanImages(p.descriptionImages?.ar),
     },
     video: { url: p.video?.url || '', publicId: p.video?.publicId || '' },
+    videoPosition: ['first', 'second', 'last'].includes(p.videoPosition) ? p.videoPosition : 'second',
     category: p.category?._id || p.category || '',
     price: p.price ?? '',
     compareAtPrice: p.compareAtPrice ?? '',
     costPrice: p.costPrice ?? '',
+    unitsPurchased: p.unitsPurchasedIsDefault === false ? p.unitsPurchased : '',
         defaultQty: p.defaultQty || 1,
     stock: p.stock ?? 0,
     lowStockAlert: p.lowStockAlert ?? 5,
@@ -60,6 +79,7 @@ function toForm(p) {
     tags: (p.tags || []).join(', '),
     isActive: p.isActive ?? true,
     isFeatured: p.isFeatured ?? false,
+    bestSeller: p.bestSeller || 'auto',
     faqs: (p.faqs || []).map((x) => ({
       q: { en: x.q?.en || '', ar: x.q?.ar || '' },
       a: { en: x.a?.en || '', ar: x.a?.ar || '' },
@@ -74,6 +94,7 @@ function toForm(p) {
       price: x.price,
       badge: { en: x.badge?.en || '', ar: x.badge?.ar || '' },
     })),
+    angles: anglesToForm(p.angles),
     freeGift: {
       enabled: !!p.freeGift?.enabled,
       product: p.freeGift?.product?._id || p.freeGift?.product || '',
@@ -146,12 +167,18 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
     const payload = {
       name: f.name,
       description: f.description,
+      benefit: f.benefit,
+      deliveryInfo: f.deliveryInfo,
+      returnsInfo: f.returnsInfo,
       descriptionImages: f.descriptionImages,
       video: f.video.url ? f.video : { url: '', publicId: '' },
+      videoPosition: f.videoPosition,
       category: f.category || null,
       price: Number(f.price),
       compareAtPrice: f.compareAtPrice === '' ? null : Number(f.compareAtPrice),
       costPrice: Number(f.costPrice) || 0,
+      // empty = not set (stock + sold is used); 0 is not allowed as a divisor
+      unitsPurchased: Number(f.unitsPurchased) > 0 ? Math.round(Number(f.unitsPurchased)) : null,
             defaultQty: f.packs.some((x) => Number(x.qty) === Number(f.defaultQty)) ? Number(f.defaultQty) : 1,
       stock: variants.length ? variants.reduce((sum, v) => sum + v.stock, 0) : Number(f.stock) || 0,
       lowStockAlert: Number(f.lowStockAlert) || 0,
@@ -161,11 +188,13 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
       tags: f.tags.split(',').map((t) => t.trim()).filter(Boolean),
       isActive: f.isActive,
       isFeatured: f.isFeatured,
+      bestSeller: f.bestSeller,
       faqs: f.faqs.filter((x) => x.q.en.trim() && x.a.en.trim()),
       comparison: f.comparison.filter((x) => x.feature.en.trim()),
       packs: f.packs
         .filter((x) => Number(x.qty) >= 2 && x.price !== '' && Number(x.price) >= 0)
         .map((x) => ({ qty: Number(x.qty), price: Number(x.price), badge: x.badge })),
+      angles: anglesToPayload(f.angles),
       freeGift: {
         enabled: !!(f.freeGift.enabled && f.freeGift.product),
         product: f.freeGift.product || undefined,
@@ -210,6 +239,34 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
               <input dir="rtl" className={inputCls} value={f.name.ar} onChange={(e) => setLang('name', 'ar', e.target.value)} />
             </Field>
           </section>
+
+          <section className="grid gap-4 sm:grid-cols-2">
+            <Field label="Short benefit line (English)" hint="One short line under the title, e.g. “Cold water for 24 hours”. Empty = first line of the description.">
+              <input maxLength={90} className={inputCls} value={f.benefit.en} onChange={(e) => setLang('benefit', 'en', e.target.value)} />
+            </Field>
+            <Field label="Short benefit line (Arabic)">
+              <input dir="rtl" maxLength={90} className={inputCls} value={f.benefit.ar} onChange={(e) => setLang('benefit', 'ar', e.target.value)} />
+            </Field>
+          </section>
+
+          <details className="rounded-xl border p-3">
+            <summary className="cursor-pointer text-sm font-medium">Delivery / Returns text for this product only (optional)</summary>
+            <p className="mt-1 text-xs text-gray-500">Empty = the text from Settings › Product page is used.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <Field label="Delivery information (English)">
+                <textarea rows={2} className={inputCls} value={f.deliveryInfo.en} onChange={(e) => setLang('deliveryInfo', 'en', e.target.value)} />
+              </Field>
+              <Field label="Delivery information (Arabic)">
+                <textarea dir="rtl" rows={2} className={inputCls} value={f.deliveryInfo.ar} onChange={(e) => setLang('deliveryInfo', 'ar', e.target.value)} />
+              </Field>
+              <Field label="Returns (English)">
+                <textarea rows={2} className={inputCls} value={f.returnsInfo.en} onChange={(e) => setLang('returnsInfo', 'en', e.target.value)} />
+              </Field>
+              <Field label="Returns (Arabic)">
+                <textarea dir="rtl" rows={2} className={inputCls} value={f.returnsInfo.ar} onChange={(e) => setLang('returnsInfo', 'ar', e.target.value)} />
+              </Field>
+            </div>
+          </details>
 
           <section className="grid gap-4 sm:grid-cols-3">
             <Field label="Price (QAR) *">
@@ -266,14 +323,25 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
           </section>
 
           <ProductVideoField video={f.video} onChange={(v) => set('video', v)} />
+          {f.video.url && (
+            <Field label="Video position in the gallery" hint="The video is one slide of the product gallery, with a “See it in action” thumbnail.">
+              <select className={inputCls} value={f.videoPosition} onChange={(e) => set('videoPosition', e.target.value)}>
+                <option value="first">First</option>
+                <option value="second">Second (default)</option>
+                <option value="last">Last</option>
+              </select>
+            </Field>
+          )}
 
           <section className="space-y-3">
             <div>
               <h3 className="font-semibold">Description pictures</h3>
               <p className="text-xs text-gray-500">
-                These pictures are the description on the product page, shown one under the other across the full width of the page.
+                These pictures are the description on the product page, shown as a mosaic of square pictures, all the same size:
+                a picture with text sits next to its text tile (sides alternate), pictures without text sit two side by side. The text tile shows only the Title and Text you write next
+                to each picture (empty = no tile). The first 6 show, then "Show more".
                 Visitors see the set for their language, or the other set if one is empty.
-                Tip: 1600 to 2000 px wide, under 8 MB each, one idea per picture.
+                Tip: square pictures, 1200 px or more, under 8 MB each, one idea per picture.
               </p>
             </div>
             <DescriptionImages title="English pictures" images={f.descriptionImages.en}
@@ -282,7 +350,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
               onChange={(list) => setLang('descriptionImages', 'ar', list)} />
 
             <details className="rounded-xl border p-3">
-              <summary className="cursor-pointer text-sm font-medium">Text description (used only when there are no pictures)</summary>
+              <summary className="cursor-pointer text-sm font-medium">Text description (shown only when there are no description pictures)</summary>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 <Field label="Description (English)">
                   <textarea rows={4} className={inputCls} value={f.description.en} onChange={(e) => setLang('description', 'en', e.target.value)} />
@@ -341,16 +409,26 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
             <div className="flex flex-col justify-end gap-2 text-sm">
               <label className="flex items-center gap-2"><input type="checkbox" checked={f.isActive} onChange={(e) => set('isActive', e.target.checked)} /> Visible in the store</label>
               <label className="flex items-center gap-2"><input type="checkbox" checked={f.isFeatured} onChange={(e) => set('isFeatured', e.target.checked)} /> Featured on the home page</label>
+              <label className="flex flex-wrap items-center gap-2">“Best seller” chip
+                <select value={f.bestSeller} onChange={(e) => set('bestSeller', e.target.value)} className="rounded-lg border bg-white px-2 py-1 text-sm">
+                  <option value="auto">Auto (top 5 by units sold in 30 days, at least 5 units)</option>
+                  <option value="always">Always show</option>
+                  <option value="never">Never show</option>
+                </select>
+              </label>
             </div>
           </section>
 
           <ProductOffers f={f} set={set} selfId={product?._id} />
-          <ProductExtras f={f} set={set} />
+          <ProductAngles angles={f.angles} onChange={(list) => set('angles', list)} productSlug={product?.slug} photos={f.images} />
+          <ProductExtras f={f} set={set}
+            adSpendTotal={product?.adSpendTotal || 0}
+            defaultUnits={(hasVariants ? f.variants.reduce((s, v) => s + (Number(v.stock) || 0), 0) : Number(f.stock) || 0) + (product?.soldCount || 0)} />
         </div>
 
         <div className="flex justify-end gap-2 border-t p-4">
           <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 hover:bg-gray-100">Cancel</button>
-          <button disabled={saving || uploading} className="rounded-lg bg-gray-900 px-5 py-2 font-medium text-white hover:bg-gray-700 disabled:opacity-60">
+          <button disabled={saving || uploading} className="rounded-lg px-5 py-2 bg-accent font-bold text-white hover:bg-accent-hover disabled:opacity-60">
             {saving ? 'Saving…' : 'Save product'}
           </button>
         </div>
