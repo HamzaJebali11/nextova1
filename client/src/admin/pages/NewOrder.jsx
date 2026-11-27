@@ -67,14 +67,14 @@ export default function NewOrder() {
       productId: id,
       variantName: v?.name || '',
       price: String(v?.price || p.price),
-      cost: String(p.costPrice ?? 0),
+      cost: String(v?.cost ?? p.costPrice ?? 0), // a combination's own cost, else the product cost
     })
   }
 
   function pickVariant(i, name) {
     const p = products.find((x) => x._id === items[i].productId)
     const v = p?.variants?.find((x) => x.name === name)
-    setItem(i, { variantName: name, price: String(v?.price || p?.price || '') })
+    setItem(i, { variantName: name, price: String(v?.price || p?.price || ''), cost: String(v?.cost ?? p?.costPrice ?? 0) })
   }
 
   const subtotal = items.reduce((s, it) => s + (Number(it.qty) || 0) * (Number(it.price) || 0), 0)
@@ -245,7 +245,7 @@ export default function NewOrder() {
               </select>
               {p?.variants?.length > 0 ? (
                 <select className={inputCls} value={it.variantName} onChange={(e) => pickVariant(i, e.target.value)}>
-                  {p.variants.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
+                  {p.variants.map((v) => <option key={v.name} value={v.name}>{v.name}{v.enabled === false ? ' (off)' : ''}</option>)}
                 </select>
               ) : <div />}
               <input type="number" min="1" className={inputCls} value={it.qty} onChange={(e) => setItem(i, { qty: e.target.value })} title="Quantity" />

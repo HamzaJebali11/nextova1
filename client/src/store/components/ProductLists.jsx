@@ -41,11 +41,11 @@ export function AlsoLikeRow({ product }) {
     <Section title={t('alsoLike')} action={list.length > 5 && (
       <div className="hidden gap-1 md:flex">
         <button type="button" onClick={() => scroll(-1)} aria-label={t('prev')}
-          className="grid h-11 w-11 place-items-center rounded-full border border-line bg-white hover:bg-quiet">
+          className="glass-btn h-11 w-11">
           <ChevronLeft size={18} className="rtl:rotate-180" />
         </button>
         <button type="button" onClick={() => scroll(1)} aria-label={t('next')}
-          className="grid h-11 w-11 place-items-center rounded-full border border-line bg-white hover:bg-quiet">
+          className="glass-btn h-11 w-11">
           <ChevronRight size={18} className="rtl:rotate-180" />
         </button>
       </div>
@@ -53,7 +53,7 @@ export function AlsoLikeRow({ product }) {
       <ul ref={row} className="-mx-1.5 flex snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden px-1.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {list.map((p, i) => (
           <Reveal as="li" key={p._id} delay={Math.min(i, 4) * 0.06}
-            className="shrink-0 snap-start basis-[calc((100%-1.5rem)/2.3)] md:basis-[calc((100%-2.25rem)/4)] lg:basis-[calc((100%-3rem)/5)]">
+            className="shrink-0 snap-start basis-[calc((100%-0.75rem)/2.3)] sm:basis-[calc((100%-1.5rem)/3)] lg:basis-[calc((100%-2.25rem)/4)] wide:basis-[calc((100%-3rem)/5)] ultra:basis-[calc((100%-3.75rem)/6)]">
             <ProductTile p={p} sizes="(min-width: 1024px) 20vw, (min-width: 768px) 25vw, 45vw" />
           </Reveal>
         ))}
@@ -72,7 +72,7 @@ export function AllProductsGrid({ product }) {
 
   return (
     <Section title={t('allProducts')}>
-      <ul className="-mx-1.5 grid grid-cols-2 gap-x-2 gap-y-4 md:grid-cols-4 lg:grid-cols-6">
+      <ul className="-mx-1.5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 wide:grid-cols-5 ultra:grid-cols-6 gap-x-2 gap-y-4">
         {list.slice(0, shown).map((p, i) => (
           <Reveal as="li" key={p._id} delay={(i % 6) * 0.06}><ProductTile p={p} /></Reveal>
         ))}
@@ -80,7 +80,7 @@ export function AllProductsGrid({ product }) {
       {list.length > shown && (
         <div className="mt-6 flex justify-center">
           <button type="button" onClick={() => setShown((n) => n + 12)}
-            className="min-h-11 rounded-full border-2 border-ink px-6 text-sm font-semibold transition hover:bg-ink hover:text-white">
+            className="glass-btn px-6 text-sm">
             {t('showMore')} ({list.length - shown})
           </button>
         </div>

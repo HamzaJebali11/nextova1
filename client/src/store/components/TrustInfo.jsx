@@ -13,7 +13,7 @@ export default function TrustInfo() {
   return (
     <ul className="grid grid-cols-3 gap-2 text-center">
       {ITEMS.map(([key, Icon]) => (
-        <li key={key} className="flex flex-col items-center gap-1.5 text-xs leading-snug text-gray-600">
+        <li key={key} className="glass flex flex-col items-center gap-1.5 rounded-2xl px-2 py-3 text-xs leading-snug text-gray-600">
           <span className="grid h-9 w-9 place-items-center rounded-full bg-quiet text-ink" aria-hidden="true">
             <Icon size={18} />
           </span>

@@ -26,3 +26,13 @@ export function rangeText(ev, t) {
     ? t('eventRange').replace('{x}', ev.minPct).replace('{y}', ev.maxPct)
     : t('eventUpTo').replace('{y}', ev.maxPct)
 }
+
+// The percentages of the "off" text, picked out so they can be shown in orange. Same template and the same
+// numbers as rangeText() (the whole text reads exactly the same); display only.
+export function rangeParts(ev, t) {
+  const tpl = ev.minPct > 0 ? t('eventRange') : t('eventUpTo')
+  return tpl.split(/(\{[xy]\}%?)/).filter(Boolean).map((part) => {
+    const m = part.match(/^\{([xy])\}(%?)$/)
+    return m ? { text: `${m[1] === 'x' ? ev.minPct : ev.maxPct}${m[2]}`, hot: true } : { text: part }
+  })
+}

@@ -3,6 +3,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { api } from '../../lib/api'
 import { money } from '../../lib/constants'
 import { FilterChip, PageHeader } from '../components/ListKit'
+import { LiveNowCard } from '../components/LiveNow'
 
 const RANGES = [[7, '7 days'], [30, '30 days'], [90, '90 days']]
 const C = { visitors: '#111111', orders: '#55524E', grid: '#E2E0DC', axis: '#6B6864' }
@@ -70,6 +71,8 @@ export default function Visitors() {
           <FilterChip key={value} active={days === value} onClick={() => setDays(value)}>{text}</FilterChip>
         ))}
       />
+
+      <LiveNowCard />
 
       {error && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</div>}
       {!ready && !error && (

@@ -90,11 +90,11 @@ export default function ExitOffer() {
   return (
     <AnimatePresence>
       {show && (
-        <motion.div className="fixed inset-0 z-[90] grid place-items-center bg-black/60 p-4"
+        <motion.div className="nx-overlay fixed inset-0 z-[var(--z-modal)] grid place-items-center bg-[var(--glass-overlay)] p-4"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShow(false)}>
           <motion.div ref={box} role="dialog" aria-modal="true" aria-labelledby="nx-exit-title" tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-sm rounded-3xl bg-white p-7 text-center shadow-e3 outline-none"
+            className="glass glass-solid glass-sheen relative w-full max-w-sm rounded-3xl p-7 text-center shadow-[var(--glass-edge),var(--glass-shadow-lift)] outline-none"
             initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}>
             <button onClick={() => setShow(false)} aria-label={t('close')}
               className="absolute end-2 top-2 grid h-11 w-11 place-items-center rounded-full text-gray-500 hover:bg-quiet"><X size={18} /></button>
@@ -104,7 +104,7 @@ export default function ExitOffer() {
             <h2 id="nx-exit-title" className="text-2xl font-extrabold">{x.title.replace('{n}', percent)}</h2>
             <p className="mt-2 text-sm text-gray-600">{x.sub.replace('{n}', percent)}</p>
             <button onClick={claim}
-              className="mt-6 w-full rounded-full bg-emerald-600 py-3.5 font-semibold text-white transition hover:bg-emerald-500">
+              className="btn-primary-glass mt-6 w-full py-3.5">
               {x.claim.replace('{n}', percent)}
             </button>
             <button onClick={() => setShow(false)} className="mt-3 text-sm text-gray-500 hover:underline">{x.no}</button>

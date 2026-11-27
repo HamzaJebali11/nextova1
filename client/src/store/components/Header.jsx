@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Languages, Search, X } from 'lucide-react'
 import { useStore } from '../storeContext'
@@ -47,21 +47,35 @@ export default function Header() {
   }, [])
   const isHidden = hidden && !searchOpen
 
+  // where the pill ends on screen: the panels that drop from the header use it for their maximum height
+  const pill = useRef(null)
+  useEffect(() => {
+    const el = pill.current
+    if (!el) return
+    const put = () => document.documentElement.style.setProperty('--header-h', `${Math.round(el.getBoundingClientRect().bottom)}px`)
+    put()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(put) : null
+    ro?.observe(el)
+    window.addEventListener('resize', put)
+    return () => { ro?.disconnect(); window.removeEventListener('resize', put) }
+  }, [])
+
   return (
     <header
       data-hidden={isHidden ? 'true' : undefined}
-      className={`sticky top-0 z-40 px-4 pb-1.5 pt-2 md:px-6 transition-transform duration-300 ease-out motion-reduce:transition-none md:pt-3 ${
+      className={`nx-page sticky top-0 z-[var(--z-header)] pb-1.5 pt-2 transition-transform duration-300 ease-out motion-reduce:transition-none md:pt-3 ${
         isHidden ? '-translate-y-[calc(100%+1rem)]' : 'translate-y-0'
       }`}
     >
-      <div className={`mx-auto max-w-[1180px] border transition-[background-color,border-color,box-shadow,border-radius] duration-300 motion-reduce:transition-none ${
+      {/* the pill is its own layer (its glass blur makes it a stacking context): above the category row and the sales banner */}
+      <div ref={pill} className={`relative z-[calc(var(--z-dropdown)+1)] border transition-[background-color,border-color,box-shadow,border-radius] duration-300 motion-reduce:transition-none ${
         searchOpen ? 'rounded-[28px] md:rounded-full' : 'rounded-full'
       } ${
         searchOpen
-          ? 'border-line bg-white shadow-e1'
+          ? 'glass glass-float'
           : atTop
             ? 'border-transparent bg-transparent'
-            : 'border-line bg-white/70 shadow-e2'
+            : 'glass glass-float'
       }`}>
         <div className="flex items-center gap-2 px-3 py-2 md:gap-4 md:px-5 md:py-2.5">
           <Link to="/" aria-label={t('home')} className="flex min-h-11 shrink-0 items-center"><Logo /></Link>
@@ -81,7 +95,7 @@ export default function Header() {
               <Languages size={18} aria-hidden="true" /> <span className="hidden sm:inline">{t('langToggle')}</span>
               <span className="sm:hidden" aria-hidden="true">{lang === 'ar' ? 'EN' : 'ع'}</span>
             </button>
-            <CartQuickView />
+            <CartQuickView headerHidden={isHidden} />
           </div>
         </div>
 

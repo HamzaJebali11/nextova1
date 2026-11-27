@@ -92,9 +92,9 @@ export default function OrderModal({ open, onClose, lines }) {
     <div
       ref={scope}
       inert={!open}
-      className="invisible fixed inset-0 z-[60] flex items-end justify-center md:items-center md:p-6"
+      className="nx-overlay invisible fixed inset-0 z-[var(--z-modal)] flex items-end justify-center md:items-center md:p-6"
     >
-      <div data-backdrop aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-black/50 opacity-0" />
+      <div data-backdrop aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-[var(--glass-overlay)] opacity-0" />
 
       <div
         data-panel
@@ -102,7 +102,7 @@ export default function OrderModal({ open, onClose, lines }) {
         aria-modal="true"
         aria-labelledby={titleId}
         onKeyDown={trapFocus}
-        className="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-white shadow-e3 md:max-h-[90vh] md:max-w-lg md:rounded-3xl"
+        className="glass glass-float relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl shadow-[var(--glass-edge),var(--glass-shadow-lift)] md:max-h-[90vh] md:max-w-lg md:rounded-3xl"
       >
         {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-3.5">
@@ -121,7 +121,7 @@ export default function OrderModal({ open, onClose, lines }) {
 
         <div className="overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4">
           {/* Pack and variant summary */}
-          <div className="mb-5 rounded-2xl bg-white p-3">
+          <div className="glass mb-5 rounded-2xl p-3">
             <div className="mb-2 text-xs font-semibold text-gray-600">{t('yourOrder')}</div>
             <ul className="space-y-2.5">
               {lines.map((l) => (
@@ -132,7 +132,7 @@ export default function OrderModal({ open, onClose, lines }) {
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold">{pick(l.name)}</div>
                     <div className="text-xs text-gray-600">
-                      {l.variantName ? `${l.variantName} · ` : ''}
+                      {l.variantName ? `${pick(l.variantLabel) || l.variantName} · ` : ''}
                       {l.qty} × {money(l.price)}
                     </div>
                     {l.giftQty > 0 && (

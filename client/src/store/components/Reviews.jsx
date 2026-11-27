@@ -12,7 +12,7 @@ import Reveal from './Reveal'
 import Section from './Section'
 
 const inputCls =
-  'w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200'
+  'glass-input w-full px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 focus:ring-emerald-200'
 
 function ReviewForm({ productId }) {
   const { t, lang } = useStore()
@@ -73,7 +73,7 @@ function ReviewForm({ productId }) {
   }
 
   return (
-    <form onSubmit={submit} noValidate className="relative mb-8 space-y-4 rounded-3xl border bg-white p-5 shadow-sm">
+    <form onSubmit={submit} noValidate className="glass relative mb-8 space-y-4 rounded-2xl p-5">
       <input tabIndex={-1} autoComplete="off" aria-hidden="true" value={f.website}
         onChange={(e) => set('website', e.target.value)} className="absolute -left-[9999px] h-0 w-0 opacity-0" />
 
@@ -122,7 +122,7 @@ function ReviewForm({ productId }) {
       {error && <div className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</div>}
 
       <button disabled={busy || uploading}
-        className="rounded-full bg-gray-900 px-6 py-3 font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-60">
+        className="btn-primary-glass px-6 py-3">
         {busy ? t('submitting') : t('submitReview')}
       </button>
     </form>
@@ -138,7 +138,7 @@ function ReviewCard({ r, onPhoto }) {
   const long = (r.comment || '').length > LONG
   const date = new Date(r.createdAt).toLocaleDateString(lang === 'ar' ? 'ar-QA' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
   return (
-    <article className="nx-lift flex h-full flex-col rounded-2xl border border-line bg-white p-5 shadow-e1">
+    <article className="glass nx-lift flex h-full flex-col rounded-2xl p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-quiet text-sm font-bold" aria-hidden="true">
@@ -202,7 +202,7 @@ export default function Reviews({ productId, headingRef }) {
 
   const writeBtn = (
     <button type="button" onClick={() => setShowForm(!showForm)} aria-expanded={showForm}
-      className="flex min-h-11 items-center gap-2 rounded-full border-2 border-ink px-5 text-sm font-semibold transition hover:bg-ink hover:text-white">
+      className="glass-btn gap-2 px-5 text-sm">
       <PenLine size={16} /> {t('writeReview')}
     </button>
   )
@@ -231,7 +231,7 @@ export default function Reviews({ productId, headingRef }) {
       )}
 
       {data && count > 0 && (
-        <div className="grid items-center gap-6 rounded-2xl bg-quiet p-5 md:grid-cols-[12rem_1fr] md:p-6">
+        <div className="glass grid items-center gap-6 rounded-2xl p-5 md:grid-cols-[12rem_1fr] md:p-6">
           <div className="text-center">
             <div className="text-5xl font-extrabold">{avg.toFixed(1)}</div>
             <div className="mt-1 flex justify-center"><Stars value={avg} size={22} /></div>
@@ -272,7 +272,7 @@ export default function Reviews({ productId, headingRef }) {
             <label className="flex items-center gap-2 text-sm">
               <span className="text-gray-600">{t('sortBy')}</span>
               <select value={sort} onChange={(e) => { setSort(e.target.value); reset() }}
-                className="min-h-11 rounded-full border border-line bg-white px-4 text-sm">
+                className="glass-input min-h-11 rounded-full px-4 text-sm">
                 <option value="newest">{t('sortNewest')}</option>
                 <option value="high">{t('sortHighest')}</option>
                 <option value="low">{t('sortLowest')}</option>
@@ -280,13 +280,13 @@ export default function Reviews({ productId, headingRef }) {
             </label>
             {withPhotos > 0 && (
               <button type="button" aria-pressed={photosOnly} onClick={() => { setPhotosOnly(!photosOnly); reset() }}
-                className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-sm font-medium ${photosOnly ? 'border-ink bg-ink text-white' : 'border-line bg-white hover:bg-quiet'}`}>
+                aria-pressed={photosOnly} className="glass-btn gap-1.5 px-4 text-sm font-medium">
                 <ImageIcon size={15} aria-hidden="true" /> {t('withPhotos')} ({withPhotos})
               </button>
             )}
             {stars > 0 && (
               <button type="button" onClick={() => { setStars(0); reset() }}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ink px-4 text-sm font-medium">
+                className="glass-btn gap-1.5 px-4 text-sm font-medium">
                 {t('starsN').replace('{n}', stars)} <X size={14} aria-hidden="true" />
               </button>
             )}
@@ -307,7 +307,7 @@ export default function Reviews({ productId, headingRef }) {
           {filtered.length > shown && (
             <div className="mt-6 flex justify-center">
               <button type="button" onClick={() => setShown((n) => n + PAGE)}
-                className="min-h-11 rounded-full border-2 border-ink px-6 text-sm font-semibold transition hover:bg-ink hover:text-white">
+                className="glass-btn px-6 text-sm">
                 {t('showMoreReviews')} ({filtered.length - shown})
               </button>
             </div>

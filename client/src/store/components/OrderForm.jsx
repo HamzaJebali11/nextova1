@@ -40,8 +40,8 @@ function Field({ label, error, children }) {
 }
 
 const inputCls = (err) =>
-  `w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 ${
-    err ? 'border-red-400 focus:ring-red-200' : 'focus:border-emerald-500 focus:ring-emerald-200'
+  `glass-input w-full px-3.5 py-2.5 text-sm outline-none transition focus:ring-2 ${
+    err ? 'is-error focus:ring-red-200' : 'focus:ring-emerald-200'
   }`
 
 // lines: [{ productId, variantName, qty, price }]
@@ -185,7 +185,7 @@ export default function OrderForm({ lines, onPlaced }) {
 
       <Field label={t('phone')} error={errors.phone}>
         <div className="flex" dir="ltr">
-          <span className="grid place-items-center rounded-s-xl border border-e-0 bg-quiet px-3 text-sm text-gray-600">+974</span>
+          <span className="glass-input grid place-items-center rounded-e-none border-e-0 px-3 text-sm text-gray-600">+974</span>
           <input type="tel" inputMode="tel" autoComplete="tel" dir="ltr" value={f.phone}
             onChange={(e) => set('phone', toLocalDigits(e.target.value))}
             className={`${inputCls(errors.phone)} rounded-s-none`} placeholder="5512 3456" />
@@ -194,7 +194,7 @@ export default function OrderForm({ lines, onPlaced }) {
       <p className="-mt-2 text-xs text-gray-500">{t('leadNote')}</p>
 
       <Field label={t('area')} error={errors.area}>
-        <select value={f.area} onChange={(e) => set('area', e.target.value)} className={`${inputCls(errors.area)} bg-white`}>
+        <select value={f.area} onChange={(e) => set('area', e.target.value)} className={inputCls(errors.area)}>
           <option value="">{t('selectArea')}</option>
           {AREAS.map((a) => <option key={a.id} value={a.id}>{lang === 'ar' ? a.ar : a.en}</option>)}
         </select>
@@ -216,7 +216,7 @@ export default function OrderForm({ lines, onPlaced }) {
           onChange={(e) => set('notes', e.target.value)} className={inputCls(false)} />
       </Field>
 
-      <div className="space-y-1 rounded-xl bg-quiet p-4 text-sm">
+      <div className="glass space-y-1 rounded-2xl p-4 text-sm">
         <div className="flex justify-between"><span>{t('subtotal')}</span><span>{money(subtotal)}</span></div>
         {discount > 0 && (
           <div className="flex justify-between text-ink font-semibold">
@@ -235,7 +235,7 @@ export default function OrderForm({ lines, onPlaced }) {
       {serverError && <div role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{serverError}</div>}
 
       <motion.button whileTap={{ scale: 0.98 }} disabled={busy || lines.length === 0}
-        className="min-h-[52px] w-full rounded-full bg-ink py-3.5 font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60">
+        className="btn-primary-glass min-h-[52px] w-full py-3.5">
         {busy ? t('placing') : `${t('placeOrder')} · ${money(total)}`}
       </motion.button>
     </form>

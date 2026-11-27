@@ -4,6 +4,7 @@ export function friendlyError(err, t, lang) {
   if (err?.network) return t('errNetwork')
   if (err?.status === 429) return t('errTooMany')
   if (err?.status >= 500) return t('errServerTry')
+  if (lang === 'ar' && err?.messageAr) return err.messageAr // the server sent the same message in Arabic
   if (lang === 'en') return err?.details?.map((d) => d.message).join(' · ') || err?.message || t('errOrderFailed')
   if (err?.status === 409) return t('errOutOfStock')
   return t('errOrderFailed')

@@ -16,9 +16,9 @@ export default function ProductFaq({ faqs }) {
   return (
     <Section title={t('faqTitle')}>
       <div className="mx-auto max-w-3xl">
-      <div className="divide-y divide-line">
+      <div className="space-y-3">
         {list.map((f, i) => (
-          <Reveal key={i} delay={Math.min(i, 5) * 0.06} className="overflow-hidden">
+          <Reveal key={i} delay={Math.min(i, 5) * 0.06} className="glass overflow-hidden rounded-2xl px-4">
             <button onClick={() => setOpen(open === i ? -1 : i)}
               className="flex min-h-12 w-full items-center justify-between gap-3 py-4 text-start font-semibold">
               {f.q}
@@ -27,7 +27,7 @@ export default function ProductFaq({ faqs }) {
             <AnimatePresence initial={false}>
               {open === i && (
                 <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
-                  <p className="pb-4 text-sm text-gray-600">{f.a}</p>
+                  <p className="max-w-[72ch] pb-4 text-sm text-gray-600">{f.a}</p>
                 </motion.div>
               )}
             </AnimatePresence>

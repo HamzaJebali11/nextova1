@@ -22,7 +22,7 @@ export default function DeliveryEstimate() {
     : t('deliveryNow')
 
   return (
-    <p className="flex items-start gap-2 text-sm text-ink">
+    <p className="glass flex items-start gap-2 rounded-2xl px-4 py-3 text-sm text-ink">
       <Truck size={18} aria-hidden="true" className="mt-px shrink-0" />
       <span>{text}</span>
     </p>

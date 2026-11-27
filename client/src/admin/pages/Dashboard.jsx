@@ -8,6 +8,7 @@ import {
 import { api } from '../../lib/api'
 import { money, fmtDate } from '../../lib/constants'
 import StatusBadge from '../components/StatusBadge'
+import { LiveChip } from '../components/LiveNow'
 
 // ---- chart palette: blues (red only for a loss) ----
 // The three blues are told apart by lightness AND by line style (revenue solid + soft fill, profit dashed),
@@ -232,7 +233,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <h1 className="flex flex-wrap items-center gap-3 text-2xl font-bold">Dashboard <LiveChip /></h1>
           <p className="text-sm text-gray-500">Revenue, profit and orders, {rangeLabel}.</p>
         </div>
         <div className="flex rounded-full border bg-white p-1" role="group" aria-label="Group by">

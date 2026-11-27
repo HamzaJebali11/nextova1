@@ -28,11 +28,11 @@ export default function PackOffers({ base, compareAt, packs, qty, max, onPick })
           return (
             <button key={o.qty} type="button" disabled={disabled} onClick={() => onPick(o.qty)}
               aria-pressed={active}
-              className={`relative rounded-2xl bg-white px-3.5 py-3 text-start text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                active ? 'border-2 border-ink shadow-e1' : 'nx-lift border border-line shadow-e1 hover:border-gray-400'
+              className={`glass relative rounded-2xl px-3.5 py-3 text-start text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                active ? 'is-selected' : 'nx-lift'
               }`}>
               {active && (
-                <span aria-hidden="true" className="absolute -top-2 start-3 grid h-5 w-5 place-items-center rounded-full bg-ink text-white">
+                <span aria-hidden="true" className="absolute -top-2 start-3 grid h-5 w-5 place-items-center rounded-full bg-accent text-white">
                   <Check size={13} strokeWidth={3} />
                 </span>
               )}

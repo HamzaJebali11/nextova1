@@ -10,6 +10,8 @@ import ProductAngles from './ProductAngles'
 import { anglesToForm, anglesToPayload } from './anglesForm'
 import DescriptionImages from './DescriptionImages'
 import ProductVideoField from './ProductVideo'
+import ProductOptions from './ProductOptions'
+import { optionsPayload, optionsToForm } from './optionsForm'
 
 const blank = {
   name: { en: '', ar: '' },
@@ -31,6 +33,8 @@ const blank = {
   sku: '',
   images: [],
   variants: [],
+  optionTypes: [], // Size, Color (see ProductOptions)
+  combos: {}, // numbers per combination name
   tags: '',
   isActive: true,
   isFeatured: false,
@@ -73,9 +77,11 @@ function toForm(p) {
     lowStockAlert: p.lowStockAlert ?? 5,
     sku: p.sku || '',
     images: p.images || [],
-    variants: (p.variants || []).map((v) => ({
+    // with option types the variants are the combinations (edited in Options), not this plain list
+    variants: p.optionTypes?.length ? [] : (p.variants || []).map((v) => ({
       name: v.name, price: v.price ?? '', stock: v.stock ?? 0, image: v.image || '',
     })),
+    ...optionsToForm(p),
     tags: (p.tags || []).join(', '),
     isActive: p.isActive ?? true,
     isFeatured: p.isFeatured ?? false,
@@ -155,7 +161,14 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
     setSaving(true)
     setError('')
 
-    const variants = f.variants
+    const grouped = f.optionTypes.length > 0
+    if (grouped && f.optionTypes.some((t) => !t.name.en.trim() || !t.values.some((v) => v.en.trim()))) {
+      setError('Each option type needs an English name and at least one value.')
+      setSaving(false)
+      return
+    }
+    const opts = grouped ? optionsPayload(f) : null
+    const variants = grouped ? opts.variants : f.variants
       .filter((v) => v.name.trim())
       .map((v) => ({
         name: v.name.trim(),
@@ -185,6 +198,8 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
       sku: f.sku,
       images: f.images,
       variants,
+      // only sent when the product has (or had) option types: older products are saved exactly as before
+      ...(grouped || product?.optionTypes?.length ? { optionTypes: grouped ? opts.optionTypes : [] } : {}),
       tags: f.tags.split(',').map((t) => t.trim()).filter(Boolean),
       isActive: f.isActive,
       isFeatured: f.isFeatured,
@@ -214,7 +229,12 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
     }
   }
 
-  const hasVariants = f.variants.length > 0
+  const grouped = f.optionTypes.length > 0
+  const hasVariants = f.variants.length > 0 || grouped
+  // stock of every option (combinations: from the Options table)
+  const variantStock = grouped
+    ? Object.entries(f.combos).filter(([k]) => optionsPayload(f).variants.some((v) => v.name === k)).reduce((s, [, c]) => s + (Number(c.stock) || 0), 0)
+    : f.variants.reduce((s, v) => s + (Number(v.stock) || 0), 0)
 
   return (
     <motion.div className="fixed inset-0 z-50 flex justify-end bg-black/40"
@@ -280,7 +300,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
             </Field>
             <Field label="Stock" hint={hasVariants ? 'Calculated from variants' : undefined}>
               <input type="number" min="0" disabled={hasVariants} className={`${inputCls} disabled:bg-gray-100`}
-                value={hasVariants ? f.variants.reduce((s, v) => s + (Number(v.stock) || 0), 0) : f.stock}
+                value={hasVariants ? variantStock : f.stock}
                 onChange={(e) => set('stock', e.target.value)} />
             </Field>
             <Field label="Low-stock alert at">
@@ -362,7 +382,9 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
             </details>
           </section>
 
-          <section>
+          <ProductOptions f={f} setF={setF} productId={product?._id} images={f.images} basePrice={f.price} />
+
+          {!grouped && <section>
             <div className="mb-2 flex items-center justify-between">
               <h3 className="font-semibold">Variants <span className="text-xs font-normal text-gray-500">(colors, sizes… optional)</span></h3>
               <button type="button" onClick={() => set('variants', [...f.variants, { name: '', price: '', stock: 0, image: '' }])}
@@ -400,7 +422,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
             ))}
 
             {hasVariants && <p className="text-xs text-gray-500">Variant price is optional. Leave it empty to use the main price (and the pack offers).</p>}
-          </section>
+          </section>}
 
           <section className="grid gap-4 sm:grid-cols-2">
             <Field label="Tags" hint="Comma separated, used by search">
@@ -423,7 +445,7 @@ export default function ProductForm({ product, categories, onClose, onSaved }) {
           <ProductAngles angles={f.angles} onChange={(list) => set('angles', list)} productSlug={product?.slug} photos={f.images} />
           <ProductExtras f={f} set={set}
             adSpendTotal={product?.adSpendTotal || 0}
-            defaultUnits={(hasVariants ? f.variants.reduce((s, v) => s + (Number(v.stock) || 0), 0) : Number(f.stock) || 0) + (product?.soldCount || 0)} />
+            defaultUnits={(hasVariants ? variantStock : Number(f.stock) || 0) + (product?.soldCount || 0)} />
         </div>
 
         <div className="flex justify-end gap-2 border-t p-4">

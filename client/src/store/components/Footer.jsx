@@ -35,12 +35,15 @@ export default function Footer() {
 
   const top = categories.filter((c) => !c.parent).slice(0, 8)
   const social = settings.social || {}
-  const socials = [['Facebook', social.facebook], ['Instagram', social.instagram], ['TikTok', social.tiktok]].filter(([, u]) => u)
+  // only real web links (a value like "javascript:..." typed in Settings is never turned into a link)
+  const socials = [['Facebook', social.facebook], ['Instagram', social.instagram], ['TikTok', social.tiktok]].filter(([, u]) => /^https?:\/\//i.test(String(u || '').trim()))
   const name = settings.storeName || 'Nextova'
 
   return (
-    <footer className="mt-12 border-t border-line bg-quiet text-ink">
-      <div className="mx-auto grid max-w-[1180px] grid-cols-2 gap-x-6 gap-y-10 px-4 md:px-6 py-12 md:grid-cols-4">
+    <footer className="nx-page mt-12 pb-6 text-ink">
+      {/* one large glass block (radius 28, sheen) */}
+      <div className="glass glass-sheen rounded-[28px]">
+      <div className="grid grid-cols-2 gap-x-6 gap-y-10 px-5 py-10 md:grid-cols-4 md:px-8 md:py-12">
         <div className="col-span-2 md:col-span-1">
           <Logo />
           <p className="mt-3 max-w-xs text-sm text-gray-600">{t('heroSub')}</p>
@@ -50,7 +53,7 @@ export default function Footer() {
               {settings.crNumber && <> · {lang === 'ar' ? 'السجل التجاري' : 'CR No.'} <span dir="ltr">{settings.crNumber}</span></>}
             </p>
           )}
-          <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1.5 text-sm font-medium">
+          <span className="glass mt-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium">
             <Banknote size={16} aria-hidden="true" /> {t('codTitle')}
           </span>
         </div>
@@ -96,13 +99,14 @@ export default function Footer() {
       </div>
 
       <div className="border-t border-line">
-        <div className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-3 px-4 md:px-6 py-4 text-xs text-gray-600">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-xs text-gray-600 md:px-8">
           <span>© {year} {settings.legalName || name}. {t('rights')}.</span>
           <button type="button" onClick={toggleLang}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-line bg-white px-3 text-sm font-medium text-ink hover:bg-quiet">
+            className="glass-btn gap-1.5 px-3 text-sm font-medium">
             <Languages size={16} aria-hidden="true" /> {t('langToggle')}
           </button>
         </div>
+      </div>
       </div>
     </footer>
   )

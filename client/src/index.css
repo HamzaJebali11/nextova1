@@ -12,6 +12,9 @@
      accent #2563EB  the only highlight, ALWAYS with WHITE text on it (contrast 5.2:1; hover 6.7:1).
        Blue text on white is also fine (5.2:1), but the highlight is used as a background.
        Storefront: saving %, "In stock", Order now (+ sticky button), price per unit. Admin: Save buttons only. */
+  /* extra breakpoints for wide screens (Step 42): wide = 1440px, ultra = 1920px (rem, so they sort after lg / xl) */
+  --breakpoint-wide: 90rem;
+  --breakpoint-ultra: 120rem;
   --color-ink: #111111;
   --color-paper: #F6F4F1;
   --color-accent: #2563EB;
@@ -73,6 +76,84 @@ body {
   background: var(--color-white);
   color: var(--color-ink);
 }
+
+/* ---- Page container (Step 42): every storefront section uses .nx-page ----
+   Fluid: full width with side padding; capped at 1920px only so very wide screens do not stretch forever. */
+:root {
+  --page-max: 1920px;                    /* widest content; wider screens keep it centred */
+  --page-pad: clamp(16px, 3vw, 56px);    /* side padding: 16px on phones up to 56px on big screens */
+}
+.nx-page {
+  width: 100%;
+  max-width: var(--page-max);
+  margin-inline: auto;
+  padding-inline: var(--page-pad);
+}
+
+/* ---- Storefront layers (Step 42): ONE z-index scale, used everywhere on the storefront ----
+   Inside the sticky header the same numbers keep the order: the pill (with the cart quick view and the
+   search suggestions dropping from it) and the category row (with its dropdowns) sit above the sales banner. */
+:root {
+  --z-content: 1;        /* small things inside the page (badges on pictures, gallery buttons) */
+  --z-event-banner: 20;  /* sales event banner: always behind the header layer */
+  --z-sticky-bar: 30;    /* sticky "Order now" bar at the bottom of the product page */
+  --z-whatsapp: 35;      /* floating WhatsApp button */
+  --z-dropdown-overlay: 45; /* light dim behind an open header panel (cart quick view): above the sticky bar
+                               and the WhatsApp button, below the header and its panels */
+  --z-header: 50;        /* sticky header (with the sales banner, category row and every panel that drops from it) */
+  --z-dropdown: 60;      /* everything that drops from the header (cart quick view, category menu, search) */
+  --z-drawer: 80;        /* cart drawer */
+  --z-modal: 100;        /* order pop-up / bottom sheet, exit offer, picture lightbox */
+  --z-toast: 110;        /* recent-order toast (hidden while a drawer or pop-up is open, see below) */
+  --header-h: 140px;     /* bottom of the header pill on screen; Header.jsx keeps it up to date */
+}
+/* ---- Sticky "Order now" bar on the product page (Step 44) ----
+   Shown (data-show) only after scrolling past the main Order now button. Hidden: slid down + transparent +
+   visibility hidden (no focus, no clicks, not read out). Only the bar itself takes clicks, never the empty strip. */
+.nx-sticky-bar {
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(calc(100% + 12px));
+  transition: transform 250ms ease, opacity 250ms ease, visibility 0s linear 250ms;
+}
+.nx-sticky-bar[data-show='true'] {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  transition: transform 250ms ease, opacity 250ms ease, visibility 0s;
+}
+.nx-sticky-bar[data-show='true'] .nx-sticky-inner { pointer-events: auto; }
+/* hidden while the cart (quick view or drawer), the order pop-up, the exit offer or a picture is open */
+body:has(.nx-overlay:not([inert]), .nx-cart-dim) .nx-sticky-bar[data-show='true'] {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(calc(100% + 12px));
+  transition: transform 250ms ease, opacity 250ms ease, visibility 0s linear 250ms;
+}
+body:has(.nx-overlay:not([inert]), .nx-cart-dim) .nx-sticky-bar[data-show='true'] .nx-sticky-inner { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .nx-sticky-bar, .nx-sticky-bar[data-show='true'],
+  body:has(.nx-overlay:not([inert]), .nx-cart-dim) .nx-sticky-bar[data-show='true'] { transform: none; }
+}
+/* the floating WhatsApp button moves up above the bar while the bar is shown, and back down after */
+.nx-wa { transition: bottom 250ms ease; }
+body:has(.nx-sticky-bar[data-show='true']):not(:has(.nx-overlay:not([inert]), .nx-cart-dim)) .nx-wa {
+  bottom: calc(96px + env(safe-area-inset-bottom));
+}
+@media (prefers-reduced-motion: reduce) { .nx-wa { transition: none; } }
+
+/* a toast never sits on top of an open drawer or pop-up */
+body:has(.nx-overlay:not([inert])) .nx-toast { visibility: hidden; }
+/* panels that drop from the header: open 8px under the pill, never taller than the screen below it */
+.nx-drop {
+  max-height: calc(100vh - var(--header-h) - 16px);
+  max-height: calc(100dvh - var(--header-h) - 16px);
+}
+.nx-noscrollbar { scrollbar-width: none; }
+.nx-noscrollbar::-webkit-scrollbar { display: none; }
+/* invisible 8px bridge between the icon and its panel, so the mouse can travel without closing it */
+.nx-drop::before { content: ''; position: absolute; inset-inline: 0; top: -8px; height: 8px; }
 
 /* every border inside the storefront uses the light line colour (the admin keeps its own) */
 .nx-store *, .nx-store ::after, .nx-store ::before {
@@ -138,36 +219,82 @@ body {
   .nx-acc::details-content { transition: none; }
 }
 
-/* ---- Sales event banner: transparent light glass with a glowing shadow (Steps 31 + 34) ---- */
+/* ---- Sales event banner: "G4 white glass with an orange glow edge" (Step 38) ----
+   Tune the whole look here. Used by the storefront banner and the admin "Banner preview".
+   Display only: nothing here (or in EventBanner.jsx) touches any price. */
+:root {
+  --event-bg: rgba(255,255,255,0.45);               /* glass fill: white at 45% (higher = more solid white) */
+  --event-border: 1px solid rgba(255,106,26,0.60);  /* thin orange edge (#FF6A1A at 60%) */
+  --event-glow: 0 14px 44px rgba(255,106,26,0.38);  /* soft orange glow below the banner */
+  --event-ring: 0 0 0 4px rgba(255,106,26,0.08);    /* faint orange halo just outside the edge */
+  --event-inset: inset 0 1px 0 rgba(255,255,255,0.9); /* bright top highlight inside the glass */
+  --event-radius: 14px;                             /* corner rounding */
+  --event-glow-soft: 0 14px 44px rgba(255,106,26,0.32); /* the glow at about 85%: low point of the slow "breathing" */
+}
 .nx-event {
   position: relative;
   color: #111111;
-  background: rgba(255, 255, 255, 0.92); /* fallback without backdrop-filter */
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  /* GLOW (Step 34, "Level 5"): tune by hand here. Keep the 85% copy in @keyframes nx-event-breathe in step. */
-  box-shadow: 0 18px 52px rgba(37,99,235,0.48), 0 0 0 1px rgba(37,99,235,0.18), 0 4px 14px rgba(17,17,17,0.18), inset 0 1px 0 rgba(255,255,255,0.8);
-  transition: background-color 200ms ease;
+  background: rgba(255, 255, 255, 0.92); /* fallback when the browser has no backdrop-filter */
+  border: var(--event-border);
+  border-radius: var(--event-radius);
+  box-shadow: var(--event-glow), var(--event-ring), var(--event-inset);
+  padding: 10px 22px;
+  min-height: 56px;
 }
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   .nx-event {
-    background: rgba(255, 255, 255, 0.22);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
-    backdrop-filter: blur(18px) saturate(150%);
+    background: var(--event-bg);
+    -webkit-backdrop-filter: var(--glass-blur); /* shared frosted blur (glass.css) */
+    backdrop-filter: var(--glass-blur);
   }
-  /* page scrolled: content moves under the glass, so more white keeps the text readable */
-  .nx-event[data-scrolled='true'] { background: rgba(255, 255, 255, 0.45); }
 }
-/* slow "breathing": the same shadow at 100% and at about 85% strength, every 4 seconds */
+/* event name: small caps style in dark orange (#C2410C passes AA on white; #EA580C is only for edge/glow) */
+.nx-event-name { font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #C2410C; }
+/* Arabic letters must stay joined: no letter spacing */
+[dir='rtl'] .nx-event-name { letter-spacing: 0; }
+.nx-event-main { font-size: 16px; font-weight: 600; color: #111111; }
+.nx-event-hot { font-weight: 700; color: #C2410C; }
+/* countdown / days left */
+.nx-event-pill {
+  background: rgba(17, 17, 17, 0.08);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #111111;
+}
+/* slow "breathing" of the glow every 4 seconds (100% -> about 85% -> 100%); off with reduced motion */
 @keyframes nx-event-breathe {
-  0%, 100% { box-shadow: 0 18px 52px rgba(37,99,235,0.48), 0 0 0 1px rgba(37,99,235,0.18), 0 4px 14px rgba(17,17,17,0.18), inset 0 1px 0 rgba(255,255,255,0.8); }
-  50% { box-shadow: 0 18px 52px rgba(37,99,235,0.41), 0 0 0 1px rgba(37,99,235,0.15), 0 4px 14px rgba(17,17,17,0.15), inset 0 1px 0 rgba(255,255,255,0.8); }
+  0%, 100% { box-shadow: var(--event-glow), var(--event-ring), var(--event-inset); }
+  50% { box-shadow: var(--event-glow-soft), var(--event-ring), var(--event-inset); }
 }
 @media (prefers-reduced-motion: no-preference) {
   .nx-event { animation: nx-event-breathe 4s ease-in-out infinite; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .nx-event { transition: none; }
+
+/* ---- Shop / category / search title banner (Step 40): look = shared .glass-orange + .glass-sheen (glass.css) ---- */
+.nx-glass-title { padding: 28px 32px; }
+.nx-glass-name { font-size: 28px; font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; color: #111111; }
+[dir='rtl'] .nx-glass-name { letter-spacing: 0; } /* Arabic letters stay joined */
+.nx-glass-count { font-size: 14px; color: #44403C; } /* 7.9:1 on the orange glass */
+@media (max-width: 767px) {
+  .nx-glass-title { border-radius: 22px; padding: 18px 20px; }
 }
+@media (min-width: 768px) {
+  .nx-glass-name { font-size: 36px; }
+}
+
+/* ---- Home first screen "H1" (Step 39): look = shared .glass + .glass-sheen, radius xl, lift shadow (glass.css) ---- */
+.nx-hero {
+  border-radius: var(--glass-radius-xl);
+  box-shadow: var(--glass-edge), var(--glass-shadow-lift);
+  padding: 16px;
+}
+@media (min-width: 1024px) { .nx-hero { padding: 40px; } }
+.nx-hero-title { font-size: 36px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; color: #111111; }
+@media (min-width: 1024px) { .nx-hero-title { font-size: 52px; line-height: 1.06; } }
+[dir='rtl'] .nx-hero-title { letter-spacing: 0; } /* Arabic letters stay joined */
 
 /* ---- "Share on WhatsApp" button (Step 32) ---- */
 .nx-share {
@@ -201,3 +328,26 @@ body {
   .nx-share, .nx-share .nx-share-icon { transition: none; }
   .nx-share:hover, .nx-share:hover .nx-share-icon { transform: none; }
 }
+
+/* ---- Product gallery thumbnails: soft white fades where more thumbnails are hidden (Step 36) ---- */
+.nx-fade-down { background: linear-gradient(to bottom, rgba(255, 255, 255, 0), #FFFFFF 80%); }
+.nx-fade-up { background: linear-gradient(to top, rgba(255, 255, 255, 0), #FFFFFF 80%); }
+.nx-fade-end { background: linear-gradient(to left, #FFFFFF 15%, rgba(255, 255, 255, 0)); }
+.nx-fade-start { background: linear-gradient(to right, #FFFFFF 15%, rgba(255, 255, 255, 0)); }
+[dir='rtl'] .nx-fade-end { background: linear-gradient(to right, #FFFFFF 15%, rgba(255, 255, 255, 0)); }
+[dir='rtl'] .nx-fade-start { background: linear-gradient(to left, #FFFFFF 15%, rgba(255, 255, 255, 0)); }
+/* a light blur under the fade, faded in with a mask so the arrow button on top stays sharp */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .nx-fade-down::before, .nx-fade-up::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    -webkit-backdrop-filter: blur(1.5px);
+    backdrop-filter: blur(1.5px);
+  }
+  .nx-fade-down::before { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 75%); mask-image: linear-gradient(to bottom, transparent, #000 75%); }
+  .nx-fade-up::before { -webkit-mask-image: linear-gradient(to top, transparent, #000 75%); mask-image: linear-gradient(to top, transparent, #000 75%); }
+  .nx-fade-down, .nx-fade-up { isolation: isolate; }
+}
+

@@ -66,9 +66,9 @@ export default function RecentOrderPopup() {
       {o && (
         <motion.div key={idx} initial={{ opacity: 0, y: 30, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 30 }} transition={{ type: 'spring', stiffness: 260, damping: 22 }}
-          className={`fixed start-4 z-30 w-72 max-w-[calc(100vw_-_6.5rem)] ${onProduct ? 'bottom-24 md:bottom-5' : 'bottom-5'}`}>
+          className={`nx-toast fixed start-4 z-[var(--z-toast)] w-72 max-w-[calc(100vw_-_6.5rem)] ${onProduct ? 'bottom-24 md:bottom-5' : 'bottom-5'}`}>
           <Link to={o.product.slug ? `/product/${o.product.slug}` : '/shop'}
-            className="flex items-center gap-3 rounded-2xl bg-white p-3 pe-9 shadow-e3 ring-1 ring-black/5">
+            className="glass glass-solid flex items-center gap-3 rounded-2xl p-3 pe-9 shadow-[var(--glass-edge),var(--glass-shadow-lift)]">
             <img src={optimizeImg(o.product.image, 120)} alt="" width={56} height={56} className="h-14 w-14 shrink-0 rounded-xl bg-quiet object-cover" />
             <div className="min-w-0 text-xs leading-snug">
               <div className="truncate text-gray-600">

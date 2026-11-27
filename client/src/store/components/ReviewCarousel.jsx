@@ -61,7 +61,7 @@ export default function ReviewCarousel({ items, showProduct = false }) {
         className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {items.map((r) => (
           <article data-card key={r._id}
-            className="flex w-[85%] shrink-0 snap-start flex-col overflow-hidden rounded-3xl border bg-white sm:w-[calc(50%_-_0.5rem)] lg:w-[calc(33.333%_-_0.67rem)]">
+            className="glass flex w-[85%] shrink-0 snap-start flex-col overflow-hidden rounded-2xl sm:w-[calc(50%_-_0.5rem)] lg:w-[calc(33.333%_-_0.67rem)] wide:w-[calc(25%_-_0.75rem)] ultra:w-[calc(20%_-_0.8rem)]">
             {r.images?.[0] && (
               <button onClick={() => setZoom(r.images[0].url)} className="block">
                 <img src={optimizeImg(r.images[0].url, 600)} alt="" loading="lazy" decoding="async" className="aspect-[4/3] w-full object-cover transition hover:opacity-90" />

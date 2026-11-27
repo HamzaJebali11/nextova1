@@ -59,7 +59,7 @@ export default function Lightbox({ url, images, index = 0, onClose, onVideoPlay 
 
   return createPortal(
     <motion.div ref={root} tabIndex={-1} role="dialog" aria-modal="true"
-      className="fixed inset-0 z-[100] flex flex-col bg-black/95 outline-none"
+      className="nx-overlay fixed inset-0 z-[var(--z-modal)] flex flex-col bg-black/95 outline-none"
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <div className="flex items-center justify-between p-3 text-white">
         <span className="ps-2 text-sm">{many ? `${i + 1} / ${list.length}` : ''}</span>

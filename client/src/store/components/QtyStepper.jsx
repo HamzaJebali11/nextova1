@@ -2,7 +2,7 @@ import { Minus, Plus } from 'lucide-react'
 
 export default function QtyStepper({ value, onChange, min = 1, max = 20 }) {
   return (
-    <div className="inline-flex items-center rounded-full border">
+    <div className="glass-btn gap-0">
       <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min}
         className="grid h-11 w-11 place-items-center rounded-full hover:bg-quiet disabled:opacity-40">
         <Minus size={16} />

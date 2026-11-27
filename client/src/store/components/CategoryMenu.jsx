@@ -5,10 +5,11 @@ import { ChevronDown } from 'lucide-react'
 import { optimizeImg } from '../../lib/image'
 import { loadCatalog, productsOf } from '../../lib/catalog'
 import { useStore } from '../storeContext'
+import { priceText } from '../../lib/options'
 
 // small product row used in the dropdown
 function MiniProduct({ p, onGo }) {
-  const { pick, money } = useStore()
+  const { t, pick, money } = useStore()
   const out = !(p.stock > 0)
   return (
     <Link to={`/product/${p.slug}`} onClick={onGo}
@@ -17,7 +18,7 @@ function MiniProduct({ p, onGo }) {
         className={`h-12 w-12 shrink-0 rounded-lg bg-quiet object-cover ${out ? 'opacity-50' : ''}`} />
       <span className="min-w-0">
         <span className="line-clamp-2 text-sm font-medium leading-snug">{pick(p.name)}</span>
-        <span className="text-sm font-semibold">{money(p.price)}</span>
+        <span className="text-sm font-semibold">{priceText(p, money, t)}</span>
       </span>
     </Link>
   )
@@ -76,12 +77,12 @@ export default function CategoryRow({ hidden }) {
     closeTimer.current = setTimeout(() => setOpen(null), 160)
   }
 
-  const linkCls = 'inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-3 text-sm font-medium text-gray-700 transition hover:bg-black/5'
+  const linkCls = 'inline-flex min-h-11 items-center whitespace-nowrap rounded-full border border-transparent px-3 text-sm font-medium text-gray-700 transition hover:bg-white/80 hover:shadow-[0_2px_8px_rgba(17,17,17,0.08)]'
 
   return (
     <nav ref={wrap} aria-label={t('categories')}
-      className="mx-auto mt-1.5 flex max-w-[1180px] items-center justify-start gap-1 overflow-x-auto px-1 [scrollbar-width:none] md:flex-wrap md:justify-center md:overflow-visible [&::-webkit-scrollbar]:hidden">
-      <NavLink to="/" end className={({ isActive }) => `${linkCls} ${isActive ? 'bg-black/5 text-ink' : ''}`}>{t('home')}</NavLink>
+      className="relative z-[var(--z-dropdown)] mt-1.5 flex items-center justify-start gap-1 overflow-x-auto px-1 [scrollbar-width:none] md:flex-wrap md:justify-center md:overflow-visible [&::-webkit-scrollbar]:hidden">
+      <NavLink to="/" end className={({ isActive }) => `${linkCls} ${isActive ? 'glass rounded-full text-ink' : ''}`}>{t('home')}</NavLink>
       {entries.map((e, idx) => {
         const isOpen = shown === e.key
         const list = all ? productsOf(all, e.category, categories, 8) : null
@@ -103,7 +104,7 @@ export default function CategoryRow({ hidden }) {
                 <motion.div id={`${panelId}-${e.key}`}
                   initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: reduce ? 0 : 0.15 }}
-                  className={`absolute top-full z-50 mt-2 hidden w-[30rem] rounded-2xl border border-line bg-white p-3 shadow-e3 md:block ${alignEnd ? 'end-0' : 'start-0'}`}>
+                  className={`glass glass-float nx-drop nx-noscrollbar absolute top-full z-[var(--z-dropdown)] mt-2 hidden w-[30rem] overflow-y-auto p-3 md:block ${alignEnd ? 'end-0' : 'start-0'}`}>
                   {!list && <div className="grid grid-cols-2 gap-2">{[0, 1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-quiet" />)}</div>}
                   {list && list.length === 0 && <p className="p-3 text-sm text-gray-500">{t('menuEmpty')}</p>}
                   {list && list.length > 0 && (
@@ -112,7 +113,7 @@ export default function CategoryRow({ hidden }) {
                     </div>
                   )}
                   <Link to={e.to} onClick={() => setOpen(null)}
-                    className="mt-2 block rounded-xl border border-line px-3 py-2 text-center text-sm font-semibold hover:bg-quiet">
+                    className="glass-btn mt-2 flex w-full rounded-xl px-3 text-center text-sm">
                     {t('viewAll')} · {e.label}
                   </Link>
                 </motion.div>

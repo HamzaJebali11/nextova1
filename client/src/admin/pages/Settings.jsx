@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowDown, ArrowUp, BadgePercent, Bell, Building2, PackageCheck, Plus, Trash2, CheckCircle2, Megaphone, Radar, Share2, ShieldCheck, Store, Truck,
-  AlertTriangle, FileBarChart, Mail,
+  AlertTriangle, FileBarChart, Images, Mail,
 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { uploadImage } from '../../lib/upload'
 import { optimizeImg } from '../../lib/image'
+import HeroProductsSettings, { MAX_HERO } from '../components/HeroProductsSettings'
 
 const inputCls = 'w-full rounded-lg border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-900'
 
@@ -86,6 +87,12 @@ const payloadOf = (s) => ({
   returnsInfo: { en: s.returnsInfo?.en || '', ar: s.returnsInfo?.ar || '' },
   pixelId: s.pixelId || '',
   clarityId: s.clarityId || '',
+  // home page hero card (Step 39); the defaults are the schema defaults, so opening this page changes nothing
+  hero: {
+    mode: s.hero?.mode === 'manual' ? 'manual' : 'auto',
+    products: (s.hero?.products || []).map(String).slice(0, MAX_HERO),
+    seconds: Math.min(10, Math.max(2, Math.round(Number(s.hero?.seconds) || 3))),
+  },
 })
 
 export default function Settings() {
@@ -280,6 +287,11 @@ export default function Settings() {
                 onChange={(e) => set('announcementSeconds', e.target.value)} />
             </label>
           </div>
+        </Card>
+
+        <Card icon={Images} title="Hero products"
+          hint="The product card on the home page first screen. It changes by itself every few seconds; only visible, in-stock products are shown.">
+          <HeroProductsSettings hero={s.hero} onChange={(v) => set('hero', v)} />
         </Card>
 
         <Card icon={Share2} title="Social links">

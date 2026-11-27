@@ -51,6 +51,22 @@
       if (location.pathname.indexOf('/admin') === 0) return
       early['/settings'] = get('/settings')
       early['/events/active'] = get('/events/active') // sales event banner (avoids a late jump)
+      // home page: the hero product card and its first picture (the largest thing on the first screen)
+      if (location.pathname === '/') {
+        early['/products/hero'] = get('/products/hero')
+        early['/products/hero'].then(function (d) {
+          var url = d && d.items && d.items[0] && d.items[0].image
+          if (!url || url.indexOf('res.cloudinary.com') < 0 || url.indexOf('/upload/') < 0) return
+          var link = document.createElement('link')
+          link.rel = 'preload'; link.as = 'image'; link.setAttribute('fetchpriority', 'high')
+          link.setAttribute('data-preload', url)
+          link.setAttribute('imagesrcset', [360, 540, 720, 960, 1280].map(function (w) {
+            return url.replace('/upload/', '/upload/f_auto,q_auto,c_limit,w_' + w + '/') + ' ' + w + 'w'
+          }).join(', '))
+          link.setAttribute('imagesizes', '(min-width: 1180px) 540px, (min-width: 1024px) 45vw, calc(100vw - 66px)') // = HERO_SIZES
+          document.head.appendChild(link)
+        }).catch(function () {})
+      }
       var m = location.pathname.match(/^\/product\/([^\/?#]+)/)
       if (!m) return
       // an ad-angle link can show its own first picture: do not preload the product's one

@@ -60,8 +60,8 @@ export default function Shop() {
   ].filter(Boolean)
 
   const catCls = (active) =>
-    `block w-full rounded-xl px-3 py-2 text-start text-sm transition ${
-      active ? 'bg-emerald-50 font-semibold text-emerald-700' : 'hover:bg-quiet'
+    `flex min-h-11 w-full items-center rounded-full px-3 text-start text-sm transition ${
+      active ? 'bg-ink font-semibold text-white' : 'hover:bg-white hover:shadow-[0_2px_8px_rgba(17,17,17,0.08)]'
     }`
 
   const priceInput = (name, placeholder) => (
@@ -69,38 +69,40 @@ export default function Shop() {
       defaultValue={sp.get(name) || ''}
       onBlur={(e) => { if (e.target.value !== (sp.get(name) || '')) update({ [name]: e.target.value }) }}
       onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-      className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200" />
+      className="glass-input w-full px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-200" />
   )
 
   return (
-    <div className="mx-auto max-w-[1180px] px-4 md:px-6 py-8">
-      {/* Title banner: light orange (one of the only two orange places in the store), straight on the white
-          page, same width as the product grid; nothing behind it, so no blur */}
-      <div className="mb-8 rounded-[20px] border border-[rgba(255,255,255,0.55)] bg-[rgba(255,106,26,0.30)] p-5 text-[#111111] shadow-[0_10px_30px_rgba(17,17,17,0.10)] md:p-7">
-        <h1 className="text-2xl font-bold tracking-tight md:text-4xl">{heading}</h1>
-        <p className="mt-1 text-sm text-[#111111]/80">{loading ? '…' : `${result.total} ${t('results')}`}</p>
+    <div className="nx-page py-8">
+      {/* Title banner (shop, category pages, search): "LG1" clear liquid glass on the white page, light shadow.
+          The look is in .nx-glass-title (index.css); same width as the product grid, nothing behind it. */}
+      <div className="glass-orange glass-sheen nx-glass-title mb-8">
+        <div className="relative flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="nx-glass-name min-w-0 break-words">{heading}</h1>
+          <p className="nx-glass-count min-w-20">{loading ? '…' : `${result.total} ${t('results')}`}</p>
+        </div>
       </div>
 
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <button onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2 rounded-full border px-4 py-2 text-sm lg:hidden">
+          className="glass-btn gap-2 px-4 text-sm lg:hidden">
           <SlidersHorizontal size={16} /> {t('filters')}
         </button>
         {chips.map((c) => (
           <button key={c.key} onClick={() => update({ [c.key]: '' })}
-            className="flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-sm text-emerald-700 hover:bg-emerald-100">
+            className="glass-btn gap-1 px-3 text-sm">
             {c.label} <X size={14} />
           </button>
         ))}
         <select value={sp.get('sort') || 'newest'}
           onChange={(e) => update({ sort: e.target.value === 'newest' ? '' : e.target.value })}
-          aria-label={t('sortBy')} className="ms-auto rounded-full border bg-white px-4 py-2 text-sm outline-none">
+          aria-label={t('sortBy')} className="glass-input ms-auto rounded-full px-4 text-sm outline-none">
           {SORTS.map(([value, key]) => <option key={value} value={value}>{t(key)}</option>)}
         </select>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[16rem_1fr]">
-        <aside className={`${showFilters ? 'block' : 'hidden'} h-fit space-y-6 rounded-3xl border bg-white p-5 lg:sticky lg:top-24 lg:block`}>
+      <div className="grid gap-8 lg:grid-cols-[clamp(240px,18vw,280px)_minmax(0,1fr)]">
+        <aside className={`${showFilters ? 'block' : 'hidden'} glass h-fit space-y-6 rounded-3xl p-5 lg:sticky lg:top-24 lg:block`}>
           <div>
             <h2 className="mb-2 text-base font-semibold">{t('categories')}</h2>
             <ul className="space-y-1">
@@ -125,12 +127,12 @@ export default function Shop() {
           </div>
 
           <div className="space-y-2 text-sm">
-            <label className="flex items-center gap-2">
+            <label className="glass-btn w-full cursor-pointer justify-start gap-2 px-4 font-medium">
               <input type="checkbox" checked={sp.get('onSale') === 'true'}
                 onChange={(e) => update({ onSale: e.target.checked ? 'true' : '' })} />
               {t('onlySale')}
             </label>
-            <label className="flex items-center gap-2">
+            <label className="glass-btn w-full cursor-pointer justify-start gap-2 px-4 font-medium">
               <input type="checkbox" checked={sp.get('inStock') === 'true'}
                 onChange={(e) => update({ inStock: e.target.checked ? 'true' : '' })} />
               {t('inStockOnly')}
@@ -150,10 +152,10 @@ export default function Shop() {
           {result.pages > 1 && (
             <div className="mt-8 flex items-center justify-center gap-3 text-sm">
               <button disabled={page <= 1} onClick={() => update({ page: page - 1 })}
-                className="rounded-full border px-4 py-2 disabled:opacity-40">{t('prev')}</button>
+                className="glass-btn px-4 disabled:opacity-40">{t('prev')}</button>
               <span>{page} / {result.pages}</span>
               <button disabled={page >= result.pages} onClick={() => update({ page: page + 1 })}
-                className="rounded-full border px-4 py-2 disabled:opacity-40">{t('next')}</button>
+                className="glass-btn px-4 disabled:opacity-40">{t('next')}</button>
             </div>
           )}
 

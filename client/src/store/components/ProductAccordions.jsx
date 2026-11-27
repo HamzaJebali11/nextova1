@@ -17,7 +17,7 @@ export default function ProductAccordions({ product, about }) {
   if (items.length === 0) return null
 
   return (
-    <div className="divide-y divide-line rounded-2xl border border-line bg-white px-4 shadow-e1">
+    <div className="glass divide-y divide-line rounded-2xl px-4">
       {items.map(([key, title, text], i) => (
         <details key={key} open={desktop && i === 0} className="nx-acc group">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-3 font-semibold [&::-webkit-details-marker]:hidden">

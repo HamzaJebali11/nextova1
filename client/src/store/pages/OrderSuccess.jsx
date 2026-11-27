@@ -36,7 +36,7 @@ export default function OrderSuccess() {
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
         <h1 className="text-2xl font-bold md:text-3xl">{t('thankYou')}</h1>
 
-        <div className="mt-4 inline-block rounded-2xl bg-quiet px-6 py-4">
+        <div className="glass glass-sheen mt-4 inline-block rounded-2xl px-6 py-4">
           <div className="text-sm text-gray-500">{t('orderNumber')}</div>
           <div className="text-2xl font-extrabold tracking-wide">{number}</div>
           {total && (
@@ -68,7 +68,7 @@ export default function OrderSuccess() {
         <p className="mt-5 text-sm text-gray-600">{t('successSub')}</p>
 
         <div className="mt-6">
-          <Link to="/shop" className="inline-block rounded-full border px-8 py-3 font-medium hover:bg-quiet">
+          <Link to="/shop" className="glass-btn px-8 font-medium">
             {t('continueShopping')}
           </Link>
         </div>

@@ -8,6 +8,7 @@ import { useStore } from '../storeContext'
 import { useCart } from '../../cart/cartContext'
 import QtyStepper from './QtyStepper'
 import Recommendations from './Recommendations'
+import { liveCart } from '../../lib/live'
 
 export default function CartDrawer() {
   const { t, lang, pick, money, settings } = useStore()
@@ -15,6 +16,8 @@ export default function CartDrawer() {
   const navigate = useNavigate()
   const panel = useRef(null)
   useDialogFocus(panel, open)
+  // live visitors: an open cart counts as "in cart" (anonymous heartbeat, lib/live.js)
+  useEffect(() => { liveCart(open) }, [open])
   useEffect(() => {
     if (!open) return
     const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
@@ -34,11 +37,11 @@ export default function CartDrawer() {
   return (
     <AnimatePresence>
       {open && (
-        <motion.div className="fixed inset-0 z-50 flex justify-end bg-black/40"
+        <motion.div className="nx-overlay fixed inset-0 z-[var(--z-drawer)] flex justify-end bg-[var(--glass-overlay)]"
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)}>
           <motion.aside ref={panel} role="dialog" aria-modal="true" aria-label={t('yourCart')} tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
-            className="flex h-full w-full max-w-md flex-col border-s border-line bg-white shadow-e3 outline-none"
+            className="glass glass-float flex h-full w-full max-w-md flex-col rounded-none border-s outline-none"
             initial={{ x: offscreen }} animate={{ x: 0 }} exit={{ x: offscreen }}
             transition={{ type: 'tween', duration: 0.25 }}>
             <div className="flex items-center justify-between border-b p-4">
@@ -51,7 +54,7 @@ export default function CartDrawer() {
                 <div>
                   <p className="mb-4 text-gray-500">{t('cartEmpty')}</p>
                   <button onClick={() => { setOpen(false); navigate('/shop') }}
-                    className="rounded-full bg-gray-900 px-6 py-2.5 text-white hover:bg-emerald-600">{t('continueShopping')}</button>
+                    className="btn-primary-glass px-6">{t('continueShopping')}</button>
                 </div>
               </div>
             ) : (
@@ -74,12 +77,12 @@ export default function CartDrawer() {
                       <img src={optimizeImg(i.image, 160)} alt="" className="h-20 w-20 shrink-0 rounded-xl bg-quiet object-cover" />
                       <div className="min-w-0 flex-1">
                         <div className="line-clamp-2 text-sm font-medium">{pick(i.name)}</div>
-                        {i.variantName && <div className="text-sm font-semibold text-emerald-700">{i.variantName}</div>}
+                        {i.variantName && <div className="text-sm font-semibold text-emerald-700">{pick(i.variantLabel) || i.variantName}</div>}
                         <div className="mt-1 text-sm font-semibold">{money(i.price * i.qty)}</div>
                         <div className="mt-2 flex items-center justify-between">
                           <QtyStepper value={i.qty} onChange={(q) => setQty(i.key, q)} />
                           <button onClick={() => remove(i.key)} aria-label={t('remove')}
-                            className="rounded-full p-2 text-red-500 hover:bg-red-50"><Trash2 size={18} /></button>
+                            className="tap-44 rounded-full p-2 text-red-500 hover:bg-red-50"><Trash2 size={18} /></button>
                         </div>
                         {i.giftQty > 0 && (
                           <div className="mt-2 flex items-center gap-2 rounded-xl bg-emerald-50 p-2 text-xs text-emerald-800">
@@ -101,7 +104,7 @@ export default function CartDrawer() {
                     <span>{t('subtotal')}</span><span>{money(subtotal)}</span>
                   </div>
                   <button onClick={goCheckout}
-                    className="w-full rounded-full bg-emerald-600 py-3.5 font-semibold text-white transition hover:bg-emerald-500">
+                    className="btn-primary-glass w-full py-3.5">
                     {t('checkout')}
                   </button>
                 </div>

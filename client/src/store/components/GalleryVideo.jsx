@@ -52,7 +52,7 @@ export default function GalleryVideo({ url, alt, active, suspended, onPlaying, o
             onVolumeChange={(e) => setMuted(e.currentTarget.muted)}
             className="absolute inset-0 h-full w-full bg-ink object-contain" />
           <button type="button" onClick={toggleSound} aria-label={muted ? t('soundOn') : t('soundOff')} aria-pressed={!muted}
-            className="absolute end-3 top-16 z-10 grid h-11 w-11 place-items-center rounded-full bg-white/90 text-ink shadow-e1 transition duration-150 hover:bg-white">
+            className="glass glass-on-photo absolute end-3 top-16 z-[var(--z-content)] grid h-11 w-11 place-items-center rounded-full text-ink transition duration-150">
             {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
           </button>
         </>
@@ -60,7 +60,7 @@ export default function GalleryVideo({ url, alt, active, suspended, onPlaying, o
         <button type="button" onClick={() => setStarted(true)} aria-label={`${t('playVideo')}: ${t('videoTitle')}`}
           className="group absolute inset-0 grid place-items-center">
           <span className="flex flex-col items-center gap-3">
-            <span className="grid h-[72px] w-[72px] place-items-center rounded-full bg-white/95 text-ink shadow-e2 transition duration-150 group-hover:scale-105">
+            <span className="glass glass-on-photo grid h-[72px] w-[72px] place-items-center rounded-full text-ink transition duration-150 group-hover:scale-105">
               <Play size={30} className="ml-1 fill-current" aria-hidden="true" />
             </span>
             <span className="rounded-full bg-black/60 px-3 py-1 text-sm font-semibold text-white">{t('videoTitle')}</span>

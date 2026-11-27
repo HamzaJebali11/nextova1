@@ -1,19 +1,19 @@
 import ProductCard from './ProductCard'
 import { useStore } from '../storeContext'
 
-const wrap = 'flex flex-wrap justify-center gap-3 md:gap-5'
-const basis = 'basis-[calc(50%_-_0.375rem)] md:basis-[calc(33.333%_-_0.84rem)] lg:basis-[calc(25%_-_0.95rem)]'
-const basisCompact = 'basis-[calc(50%_-_0.375rem)] md:basis-[calc(33.333%_-_0.84rem)] xl:basis-[calc(25%_-_0.95rem)]'
+// Product grid (home sections, shop, suggestions): uses the whole page width.
+// Columns: 2 on phones, 3 from 640px, 4 from 1024px, 5 from 1440px, 6 from 1920px. Cards keep square pictures.
+// (The older "compact" prop is still accepted by callers but no longer changes the columns.)
+const wrap = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 wide:grid-cols-5 ultra:grid-cols-6 gap-3 md:gap-5'
 
-export default function ProductGrid({ items, loading, count = 8, compact = false }) {
+export default function ProductGrid({ items, loading, count = 8 }) {
   const { t } = useStore()
-  const b = compact ? basisCompact : basis
 
   if (loading) {
     return (
       <div className={wrap}>
         {Array.from({ length: count }).map((_, i) => (
-          <div key={i} className={`${b} animate-pulse`}>
+          <div key={i} className="animate-pulse">
             <div className="aspect-square rounded-3xl bg-gray-200" />
             <div className="mt-3 h-4 w-3/4 rounded bg-gray-200" />
             <div className="mt-2 h-4 w-1/3 rounded bg-gray-200" />
@@ -28,7 +28,7 @@ export default function ProductGrid({ items, loading, count = 8, compact = false
   return (
     <div className={wrap}>
       {items.map((p, i) => (
-        <div key={p._id} className={`${b} min-w-0`}>
+        <div key={p._id} className="min-w-0">
           <ProductCard p={p} index={i} />
         </div>
       ))}

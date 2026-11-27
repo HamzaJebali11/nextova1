@@ -1,0 +1,209 @@
+/* ==========================================================================================================
+   NEXTOVA LIQUID GLASS (storefront only, Step 41). Imported once in main.jsx, after index.css.
+   Every storefront component uses these variables and classes; nothing is hard-coded per component.
+   The classes live in the "components" layer, so a Tailwind utility on the same element (rounded-*, p-*,
+   border-red-400 for an error, ...) still wins where a component needs it.
+
+   Where the blur is used (backdrop-filter):
+   - only on surfaces that FLOAT OVER content (.glass-float): header pill, sticky Order now bar, cart drawer,
+     order pop-up / bottom sheet, category dropdown. On a pure white page a blur shows nothing, so the
+     surfaces that sit on the white page (.glass) use the gradient, border and shadow only. That keeps
+     phones fast and avoids blurred boxes inside blurred boxes (never nested, see the end of the file).
+   - floating panels that open INSIDE the header pill (cart quick view, search suggestions) and small floating
+     cards (recent-order toast, exit offer) use .glass-solid: almost opaque white, no blur, always readable.
+   ========================================================================================================== */
+:root {
+  --glass-radius-sm: 12px;  /* small controls: variant chips, inputs, thumbnails */
+  --glass-radius-md: 18px;  /* product cards, cards in rows */
+  --glass-radius-lg: 24px;  /* buy box, big cards */
+  --glass-radius-xl: 28px;  /* hero section, title banner, footer block */
+  /* the white glass fill: raise the two alphas for a more solid white, lower them for clearer glass */
+  --glass-white: linear-gradient(135deg, rgba(255,255,255,0.68), rgba(255,255,255,0.28));
+  /* the orange tint for banners: white sheen layer + 24% orange (raise 0.24 for a stronger orange) */
+  --glass-orange: linear-gradient(135deg, rgba(255,255,255,0.50), rgba(255,255,255,0.10)), rgba(255,106,26,0.24);
+  /* the frosted blur behind floating glass: raise 20px for more blur, 180% for richer colours behind */
+  --glass-blur: blur(20px) saturate(180%);
+  /* thin bright edge of every glass surface (raise 0.85 towards 1 for a crisper edge) */
+  --glass-border: 1px solid rgba(255,255,255,0.85);
+  /* inner light: bright top line + a faint dark bottom line, so the glass reads as a raised pane */
+  --glass-edge: inset 0 1px 1px #FFFFFF, inset 0 -1px 2px rgba(17,17,17,0.05);
+  /* everyday soft shadow under glass (raise 0.08 for more depth) */
+  --glass-shadow: 0 8px 22px rgba(17,17,17,0.08);
+  /* light orange glow under the orange banners (raise 0.14 for a stronger glow) */
+  --glass-shadow-orange: 0 8px 22px rgba(255,106,26,0.14), 0 1px 3px rgba(17,17,17,0.05);
+  /* raised shadow for the big surfaces (home hero, pop-ups) and the desktop hover lift */
+  --glass-shadow-lift: 0 24px 60px rgba(17,17,17,0.10), 0 4px 14px rgba(17,17,17,0.06);
+  /* soft specular highlight on large surfaces (top-left; mirrored to the top-right in Arabic) */
+  --glass-sheen: radial-gradient(120% 140% at 8% 0%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 45%);
+  --glass-sheen-rtl: radial-gradient(120% 140% at 92% 0%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 45%);
+  /* the primary blue button. White text must stay at least 4.5:1 on BOTH ends of the gradient:
+     #2563EB = 5.2:1, #1D4ED8 = 6.7:1 (the lighter #3B82F6 is only 3.7:1 with white text, so it is not used) */
+  --btn-blue: linear-gradient(180deg, #2563EB, #1D4ED8);
+  --btn-blue-shadow: inset 0 1px 1px rgba(255,255,255,0.55), 0 6px 16px rgba(37,99,235,0.28); /* top highlight + soft blue glow */
+  /* almost solid white: fallback (no backdrop-filter / reduced transparency) and the .glass-solid panels */
+  --glass-fallback: rgba(255,255,255,0.96);
+  /* inputs and selects need a visible outline on a white page (a white edge alone is invisible): 3:1 vs white */
+  --glass-input-border: 1px solid rgba(17,17,17,0.28);
+  /* WhatsApp button */
+  --wa-green: linear-gradient(180deg, #34D977, #25D366);
+  --wa-shadow: inset 0 1px 1px rgba(255,255,255,0.55), 0 8px 22px rgba(37,211,102,0.35);
+  /* dimmed white overlay behind the cart drawer and the order pop-up (no extra blur) */
+  --glass-overlay: rgba(255,255,255,0.55);
+}
+
+@layer components {
+  /* white glass surface on the page (cards, sections, buy box, footer block, accordions ...) */
+  .glass {
+    background: var(--glass-white);
+    border: var(--glass-border);
+    border-radius: var(--glass-radius-md);
+    box-shadow: var(--glass-edge), var(--glass-shadow);
+  }
+  /* orange tinted glass for the banners (category / shop title) */
+  .glass-orange {
+    background: var(--glass-orange);
+    border: var(--glass-border);
+    border-radius: var(--glass-radius-xl);
+    box-shadow: var(--glass-edge), var(--glass-shadow-orange);
+  }
+  /* glass that floats over content: frosted blur behind it (header, sticky bar, drawer, order pop-up, dropdown) */
+  .glass-float {
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+  /* almost opaque white panel (opens inside the header pill, toasts, exit offer): readable without blur */
+  .glass-solid {
+    background: linear-gradient(135deg, #FFFFFF, var(--glass-fallback));
+  }
+  /* white glass pill button (secondary actions, filter pills, sort, toggles) */
+  .glass-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    border-radius: 999px;
+    background: var(--glass-white);
+    border: var(--glass-border);
+    box-shadow: var(--glass-edge), 0 2px 8px rgba(17,17,17,0.08), 0 0 0 1px rgba(17,17,17,0.06);
+    color: #111111;
+    font-weight: 600;
+    transition: box-shadow 150ms ease, background 150ms ease, transform 150ms ease;
+  }
+  .glass-btn:hover:not(:disabled) { background: linear-gradient(135deg, #FFFFFF, rgba(255,255,255,0.7)); box-shadow: var(--glass-edge), var(--glass-shadow), 0 0 0 1px rgba(17,17,17,0.10); }
+  /* selected filter / category pill: solid dark */
+  .glass-btn[aria-pressed='true'], .glass-btn.is-active {
+    background: #111111;
+    color: #FFFFFF;
+    border-color: #111111;
+    box-shadow: 0 4px 12px rgba(17,17,17,0.18);
+  }
+  /* primary action: blue gradient pill, white text, 48px */
+  .btn-primary-glass {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 48px;
+    border-radius: 999px;
+    background: var(--btn-blue);
+    border: 1px solid rgba(255,255,255,0.35);
+    box-shadow: var(--btn-blue-shadow);
+    color: #FFFFFF;
+    font-weight: 700;
+    transition: box-shadow 150ms ease, filter 150ms ease, transform 150ms ease;
+  }
+  .btn-primary-glass:hover:not(:disabled) { filter: brightness(0.94); box-shadow: inset 0 1px 1px rgba(255,255,255,0.55), 0 10px 22px rgba(37,99,235,0.34); }
+  .btn-primary-glass:disabled { opacity: 0.5; }
+  /* glass inputs, selects, text areas */
+  .glass-input {
+    min-height: 44px;
+    border-radius: var(--glass-radius-sm);
+    background: var(--glass-white), #FFFFFF;
+    border: var(--glass-input-border);
+    box-shadow: var(--glass-edge);
+    color: #111111;
+  }
+  .glass-input::placeholder { color: #6B6864; }
+  /* large surfaces only: the soft specular highlight (sits under the content) */
+  .glass-sheen { position: relative; isolation: isolate; }
+  .glass-sheen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: var(--glass-sheen);
+  }
+  [dir='rtl'] .glass-sheen::before { background: var(--glass-sheen-rtl); }
+  /* a small control keeps its look but gets a 44 x 44 px tap area on phones (no layout change) */
+  .tap-44 { position: relative; }
+  .tap-44::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+  /* variant / option chips: glass, radius 12; chosen = blue gradient; sold out = grey crossed out; "+N more" dashed */
+  .glass-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: var(--glass-radius-sm);
+    background: var(--glass-white);
+    border: var(--glass-border);
+    box-shadow: var(--glass-edge), 0 1px 4px rgba(17,17,17,0.06), 0 0 0 1px rgba(17,17,17,0.10);
+    color: #111111;
+    font-size: 0.875rem;
+    transition: box-shadow 150ms ease, background 150ms ease;
+  }
+  .glass-chip:hover { box-shadow: var(--glass-edge), 0 2px 8px rgba(17,17,17,0.10), 0 0 0 1px rgba(17,17,17,0.35); }
+  .glass-chip.is-chosen { background: var(--btn-blue); color: #FFFFFF; font-weight: 600; box-shadow: var(--btn-blue-shadow); }
+  /* sold out / switched off: #6B6864 on #F5F5F4 is 5.0:1 (the old light grey text was below AA) */
+  .glass-chip.is-soldout { background: #F5F5F4; color: #6B6864; text-decoration: line-through; box-shadow: none; }
+  .glass-chip.is-full { opacity: 0.5; }
+  .glass-chip.is-more { font-weight: 700; box-shadow: none; }
+  /* selected pack card: 2px blue border with a soft blue shadow */
+  .glass.is-selected { box-shadow: var(--glass-edge), 0 8px 22px rgba(37,99,235,0.18); }
+  /* the product bar on the home hero picture: glass, radius 16, denser white because it sits on a photo */
+  .glass-on-photo { background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(255,255,255,0.74)); border-radius: 16px; }
+  @media (min-width: 768px) {
+    .glass-on-photo { -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+  }
+  /* floating WhatsApp button */
+  .wa-glass { background: var(--wa-green); box-shadow: var(--wa-shadow); border: 1px solid rgba(255,255,255,0.45); }
+}
+
+/* the storefront rule that gives every border the light line colour must not repaint the glass edges */
+.nx-store :is(.glass, .glass-orange, .glass-btn, .btn-primary-glass, .wa-glass) { border-color: rgba(255,255,255,0.85); }
+.nx-store .glass-input { border-color: rgba(17,17,17,0.28); }
+.nx-store .glass-btn:is([aria-pressed='true'], .is-active) { border-color: #111111; }
+.nx-store .glass-input.is-error { border-color: #F87171; }
+.nx-store .glass-chip { border-color: rgba(255,255,255,0.85); }
+.nx-store .glass-chip.is-chosen { border-color: rgba(255,255,255,0.35); }
+.nx-store .glass-chip.is-soldout { border-color: #F5F5F4; }
+.nx-store .glass-chip.is-more { border: 1px dashed #A8A29E; }
+.nx-store .glass.is-selected { border: 2px solid #2563EB; }
+
+/* no blur available, or the visitor asked for less transparency: solid white, same edge and shadow, no blur */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .glass-float, .glass, .glass-btn { background: var(--glass-fallback); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass, .glass-btn, .glass-float, .glass-input { background: var(--glass-fallback); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .glass-orange { background: rgba(255,236,224,1); }
+}
+
+/* never a blurred box inside a blurred box */
+.glass-float .glass-float { -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* product cards and cards that lift on hover: 2px up with a slightly stronger glass shadow (desktop only) */
+@media (hover: hover) and (pointer: fine) {
+  .nx-lift.glass:hover { box-shadow: var(--glass-edge), 0 14px 30px rgba(17,17,17,0.12); }
+}

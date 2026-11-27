@@ -65,15 +65,17 @@ export default function Page() {
     return (
       <div className="min-h-[60vh] px-4 py-12 text-center">
         <h1 className="mb-4 text-lg font-normal text-gray-600">{t('pageNotFound')}</h1>
-        <Link to="/shop" className="inline-flex min-h-11 items-center rounded-full bg-gray-900 px-6 text-white hover:bg-gray-800">{t('backToShop')}</Link>
+        <Link to="/shop" className="btn-primary-glass px-6">{t('backToShop')}</Link>
       </div>
     )
   }
 
   return (
-    <article className="mx-auto max-w-3xl px-4 py-12">
+    <article className="nx-page py-12">
+      <div className="mx-auto max-w-[72ch]">
       <h1 className="mb-6 text-3xl font-extrabold">{title}</h1>
       <Content text={pick(state.page.content)} />
+      </div>
     </article>
   )
 }

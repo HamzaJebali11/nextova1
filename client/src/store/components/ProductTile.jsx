@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { imgSrcSet, optimizeImg } from '../../lib/image'
 import { useStore } from '../storeContext'
+import { priceRange, priceText } from '../../lib/options'
 import BestSellerChip from './BestSellerChip'
 import { Stars } from './Stars'
 
@@ -9,11 +10,12 @@ import { Stars } from './Stars'
 export default function ProductTile({ p, sizes = '(min-width: 1024px) 16vw, (min-width: 768px) 25vw, 50vw' }) {
   const { t, pick, money } = useStore()
   const out = !(p.stock > 0)
-  const off = p.compareAtPrice > p.price ? Math.round((1 - p.price / p.compareAtPrice) * 100) : 0
+  const ranged = priceRange(p).min !== priceRange(p).max // option types with different prices: "From"
+  const off = !ranged && p.compareAtPrice > p.price ? Math.round((1 - p.price / p.compareAtPrice) * 100) : 0
   const img = p.images?.[0]?.url
   return (
     <Link to={`/product/${p.slug}`}
-      className="group block h-full rounded-2xl p-1.5 transition-shadow duration-150 hover:shadow-e2 focus-visible:shadow-e2">
+      className="glass nx-lift group block h-full p-2.5">
       <span className="relative block aspect-square overflow-hidden rounded-xl bg-quiet">
         {img && (
           <img src={optimizeImg(img, 400)} srcSet={imgSrcSet(img, [200, 300, 400, 600])} sizes={sizes}
@@ -38,7 +40,7 @@ export default function ProductTile({ p, sizes = '(min-width: 1024px) 16vw, (min
           </span>
         )}
         <span className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
-          <span className="font-bold">{money(p.price)}</span>
+          <span className="font-bold">{priceText(p, money, t)}</span>
           {off > 0 && <s className="text-xs text-gray-500">{money(p.compareAtPrice)}</s>}
         </span>
       </span>

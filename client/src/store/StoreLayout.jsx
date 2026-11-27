@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { captureUtm } from '../lib/utm'
 import { trackVisit } from '../lib/track'
+import { livePage } from '../lib/live'
 import AnnouncementBar from './components/AnnouncementBar'
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -16,7 +17,7 @@ const ExitOffer = lazy(() => whenIdle().then(() => import('./components/ExitOffe
 import ClarityLoader from './components/ClarityLoader'
 
 export default function StoreLayout() {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
 
   useEffect(() => {
     captureUtm()
@@ -25,6 +26,11 @@ export default function StoreLayout() {
   useEffect(() => {
     trackVisit(pathname)
   }, [pathname])
+
+  // live visitors heartbeat (anonymous, after the page is idle; see lib/live.js)
+  useEffect(() => {
+    livePage(pathname, search)
+  }, [pathname, search])
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -36,7 +42,7 @@ export default function StoreLayout() {
       <Header />
       <main className="min-h-[100svh] flex-1">{/* at least one screen: the footer never shows (and then jumps) while a page loads */}
         <div key={pathname}>
-          <Suspense fallback={<div className="mx-auto min-h-[60vh] max-w-[1180px] animate-pulse px-4 md:px-6 py-8"><div className="h-64 rounded-3xl bg-gray-200" /></div>}>
+          <Suspense fallback={<div className="nx-page min-h-[60vh] animate-pulse py-8"><div className="h-64 rounded-3xl bg-gray-200" /></div>}>
             <Outlet />
           </Suspense>
         </div>

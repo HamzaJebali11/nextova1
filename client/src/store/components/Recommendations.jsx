@@ -5,6 +5,7 @@ import { optimizeImg } from '../../lib/image'
 import { cartLineFor, loadCatalog } from '../../lib/catalog'
 import { track } from '../../lib/pixel'
 import { useStore } from '../storeContext'
+import { priceText } from '../../lib/options'
 import { useCart } from '../../cart/cartContext'
 import Reveal from './Reveal'
 
@@ -57,11 +58,11 @@ export default function Recommendations({ exclude = [], compact = false, title =
         {!compact && list.length > 3 && (
           <div className="hidden gap-1 md:flex">
             <button type="button" onClick={() => scroll(-1)} aria-label={t('prev')}
-              className="grid h-11 w-11 place-items-center rounded-full border border-line bg-white hover:bg-quiet">
+              className="glass-btn h-11 w-11">
               <ChevronLeft size={16} className="rtl:rotate-180" />
             </button>
             <button type="button" onClick={() => scroll(1)} aria-label={t('next')}
-              className="grid h-11 w-11 place-items-center rounded-full border border-line bg-white hover:bg-quiet">
+              className="glass-btn h-11 w-11">
               <ChevronRight size={16} className="rtl:rotate-180" />
             </button>
           </div>
@@ -72,21 +73,21 @@ export default function Recommendations({ exclude = [], compact = false, title =
           const needsChoice = p.variants?.length > 0
           const done = added === p._id
           return (
-            <Reveal as="li" key={p._id} delay={Math.min(idx, 5) * 0.06} className={`${card} nx-lift shrink-0 snap-start rounded-2xl border border-line bg-white p-2 shadow-e1`}>
+            <Reveal as="li" key={p._id} delay={Math.min(idx, 5) * 0.06} className={`${card} glass nx-lift shrink-0 snap-start p-2.5`}>
               <Link to={`/product/${p.slug}`} className="block">
                 <img src={optimizeImg(p.images?.[0]?.url, compact ? 200 : 280)} alt="" width={160} height={160}
                   loading="lazy" decoding="async" className="aspect-square w-full rounded-lg bg-quiet object-cover" />
                 <span className={`mt-1.5 line-clamp-2 font-medium leading-snug ${compact ? 'text-[11px]' : 'text-xs'}`}>{pick(p.name)}</span>
               </Link>
               <div className="mt-1 flex items-center justify-between gap-1">
-                <span className={`font-semibold ${compact ? 'text-[11px]' : 'text-xs'}`}>{money(p.price)}</span>
+                <span className={`font-semibold ${compact ? 'text-[11px]' : 'text-xs'}`}>{priceText(p, money, t)}</span>
                 {needsChoice ? (
-                  <Link to={`/product/${p.slug}`} className="rounded-full border border-line px-2 py-1 text-[11px] font-semibold hover:bg-quiet">
+                  <Link to={`/product/${p.slug}`} className="glass-btn tap-44 min-h-0 px-2 py-1 text-[11px]">
                     {t('choose')}
                   </Link>
                 ) : (
                   <button type="button" onClick={() => add(p)} aria-label={`${t('add')} ${pick(p.name)}`}
-                    className="inline-flex items-center gap-0.5 rounded-full border border-ink px-2 py-1 text-[11px] font-semibold hover:bg-ink hover:text-white">
+                    className="glass-btn tap-44 min-h-0 gap-0.5 px-2 py-1 text-[11px]">
                     {done ? <Check size={12} /> : <Plus size={12} />} {done ? t('addedShort') : t('add')}
                   </button>
                 )}

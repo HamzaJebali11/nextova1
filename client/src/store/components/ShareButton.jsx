@@ -39,7 +39,7 @@ export default function ShareButton({ product }) {
 
   return (
     <button type="button" onClick={share}
-      className="nx-share flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-line bg-white px-4 text-sm font-semibold text-ink">
+      className="glass-btn nx-share flex w-full px-4 text-sm">
       <WhatsAppIcon size={17} className="nx-share-icon" aria-hidden="true" />
       {t('shareWhatsApp')}
       <Share2 size={15} aria-hidden="true" className="opacity-60" />

@@ -1,0 +1,12 @@
+# Security headers for every page of the shop and the admin (Cloudflare static assets read this file).
+# Step 43 audit. The Content-Security-Policy is first sent as "Report-Only": the browser only reports what it
+# would block, nothing breaks. After checking the browser console on the live site (no "[Report Only]" messages
+# for normal pages, Meta Pixel, Clarity, Cloudinary uploads), rename the header to "Content-Security-Policy".
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Cross-Origin-Opener-Policy: same-origin
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'unsafe-inline' https://connect.facebook.net https://www.clarity.ms https://*.clarity.ms; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https://res.cloudinary.com https://www.facebook.com https://*.clarity.ms https://c.bing.com; media-src 'self' blob: https://res.cloudinary.com; connect-src 'self' https://api.nextova.store https://api.cloudinary.com https://www.facebook.com https://connect.facebook.net https://*.clarity.ms https://c.bing.com; frame-src 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests

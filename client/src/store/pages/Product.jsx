@@ -25,14 +25,19 @@ import ProductCompare from '../components/ProductCompare'
 import ProductFaq from '../components/ProductFaq'
 import ProductGallery from '../components/ProductGallery'
 import DescriptionStory from '../components/DescriptionStory'
-import VariantPicker from '../components/VariantPicker'
+import VariantPicker, { OptionPicker } from '../components/VariantPicker'
+import { comboLabel, comboLabels, comboOf, compareAtOf, isOn, optionTypesOf, priceRange, unitPriceOf } from '../../lib/options'
 import NotifyMe from '../components/NotifyMe'
 import TrustInfo from '../components/TrustInfo'
 import ShareButton from '../components/ShareButton'
 import BestSellerChip from '../components/BestSellerChip'
+import { liveProduct } from '../../lib/live'
 import { WhatsAppIcon } from '../components/icons'
 
 const r2 = (n) => Math.round(n * 100) / 100
+// a new number each time a picture is asked for (the gallery shows it even if it is the same picture again)
+let focusSeq = 0
+const nextFocus = () => ++focusSeq
 
 function countBy(list) {
   const out = {}
@@ -72,12 +77,40 @@ function fit(variants, current, n) {
   return next
 }
 
+// products with option types: one list of chosen values per unit (null = not chosen yet).
+// One type works like the older variants (the first one in stock is chosen); with two types the customer chooses.
+function fitParts(product, types, current, n) {
+  const next = current.slice(0, n)
+  const nameOf = (vals) => comboOf(product, vals)?.name
+  const used = {}
+  next.forEach((vals) => { const k = nameOf(vals); if (k) used[k] = (used[k] || 0) + 1 })
+  const free = (v) => (Number(v.stock) || 0) - (used[v.name] || 0)
+  while (next.length < n) {
+    const last = next[next.length - 1]
+    const lastV = last && comboOf(product, last)
+    let vals
+    if (lastV && free(lastV) > 0) vals = [...last]
+    else if (types.length === 1) {
+      const v = (product.variants || []).find((x) => isOn(x) && free(x) > 0)
+      vals = [v ? v.options?.[0]?.value || v.name : null]
+    } else vals = types.map(() => null)
+    next.push(vals)
+    const k = nameOf(vals)
+    if (k) used[k] = (used[k] || 0) + 1
+  }
+  return next
+}
+
 function ProductView({ product }) {
   const { t, lang, pick, money, settings, event } = useStore()
   const { addMany } = useCart()
   const [sp] = useSearchParams()
 
   const variants = product.variants || []
+  // option types (Size, Color): each variant is one combination; empty for older products
+  const types = optionTypesOf(product)
+  const grouped = types.length > 0
+  const range = priceRange(product)
   const images = product.images || []
   const packs = (product.packs || []).map(({ qty, price }) => ({
     qty,
@@ -96,8 +129,9 @@ function ProductView({ product }) {
     variants[0]?.name ||
     ''
 
+  // (combinations that are switched off are not for sale)
   const totalStock = variants.length
-    ? variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
+    ? variants.filter((v) => !grouped || isOn(v)).reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
     : Number(product.stock) || 0
 
   // Initial pack quantity
@@ -113,8 +147,11 @@ function ProductView({ product }) {
 
   const [qty, setQty] = useState(startQty)
   const [picks, setPicks] = useState(() =>
-    variants.length ? fit(variants, [], startQty) : []
+    variants.length && !grouped ? fit(variants, [], startQty) : []
   )
+  const [parts, setParts] = useState(() => (grouped ? fitParts(product, types, [], startQty) : []))
+  const [missing, setMissing] = useState(() => new Set()) // "unit:type" groups to highlight
+  const groupEls = useRef({})
   const [focus, setFocus] = useState(null)
   const [notifyFor, setNotifyFor] = useState(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -125,7 +162,12 @@ function ProductView({ product }) {
   const safeQty = Math.min(qty, maxQty)
 
   // One option per unit
-  const unitPicks = variants.length
+  const unitParts = grouped
+    ? Array.from({ length: safeQty }, (_, i) => parts[i] || types.map(() => null))
+    : []
+  const unitPicks = grouped
+    ? unitParts.map((vals) => comboOf(product, vals)?.name || '')
+    : variants.length
     ? Array.from(
         { length: safeQty },
         (_, i) => picks[i] || firstInStock
@@ -143,7 +185,7 @@ function ProductView({ product }) {
     ) {
       setFocus({
         url: variant.image,
-        n: Date.now(),
+        n: nextFocus(),
       })
     } else {
       setFocus(null)
@@ -155,9 +197,44 @@ function ProductView({ product }) {
 
     setQty(newQty)
 
-    if (variants.length) {
+    if (grouped) setParts((current) => fitParts(product, types, current, newQty))
+    else if (variants.length) {
       setPicks((current) => fit(variants, current, newQty))
     }
+  }
+
+  // products with option types: choose (or clear) one value of one type for one unit
+  function pickPart(i, ti, value) {
+    setNotifyFor(null)
+    const vals = [...unitParts[i]]
+    vals[ti] = value
+    setParts(unitParts.map((x, j) => (j === i ? vals : x)))
+    setMissing((m) => { if (!m.has(`${i}:${ti}`)) return m; const n = new Set(m); n.delete(`${i}:${ti}`); return n })
+    // the value's own picture, else the combination's picture (as the older variant pictures)
+    const img = value && types[ti].values.find((x) => x.en === value)?.image
+    const combo = comboOf(product, vals)
+    if (img) setFocus({ url: img, n: nextFocus() })
+    else if (combo?.image) showVariantPicture(combo.name)
+  }
+
+  function samePartsForAll(first) {
+    setParts(unitParts.map(() => [...first]))
+    setNotifyFor(null)
+    setMissing(new Set())
+  }
+
+  // before Add to cart / Order now: every type chosen for every unit, else scroll to the first missing group
+  function ensureChosen() {
+    if (!grouped) return true
+    const gaps = new Set()
+    unitParts.forEach((vals, i) => vals.forEach((v, ti) => { if (!v) gaps.add(`${i}:${ti}`) }))
+    if (!gaps.size) return true
+    setMissing(gaps)
+    const first = groupEls.current[[...gaps][0]]
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    first?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' })
+    first?.querySelector('button')?.focus({ preventScroll: true })
+    return false
   }
 
   function pickVariant(i, name) {
@@ -181,6 +258,13 @@ function ProductView({ product }) {
   // Products being purchased
   const lines = variants.length
     ? Object.entries(countBy(unitPicks)).map(([name, n]) => {
+        if (grouped && !name) {
+          // not chosen yet: display only (Add to cart and Order now first ask for the choice)
+          return {
+            productId: product._id, slug: product.slug, name: product.name, image: images[0]?.url, variantName: '',
+            qty: n, base: range.min, price: range.min, packs: [], poolable: false, gift: product.gift || null, incomplete: true,
+          }
+        }
         const variant = variants.find((v) => v.name === name)
         const ownPrice = variant ? Number(variant.price) || 0 : 0
         const basePrice = ownPrice || Number(product.price) || 0
@@ -191,6 +275,7 @@ function ProductView({ product }) {
           name: product.name,
           image: variant?.image || images[0]?.url,
           variantName: name,
+          ...(grouped ? { variantLabel: comboLabels(product, name) } : {}),
           qty: n,
           base: basePrice,
           price: basePrice,
@@ -229,20 +314,31 @@ function ProductView({ product }) {
     (v) => v.name === unitPicks[0]
   )
 
-  const displayBase =
-    firstVariant?.price || product.price
+  // products with option types: the chosen combination's own price and "was" price (else the product's)
+  const choosing = grouped && unitPicks.some((n) => !n)
+  const displayBase = grouped
+    ? (firstVariant ? unitPriceOf(product, firstVariant) : range.min)
+    : firstVariant?.price || product.price
+  const compareAt = grouped ? (firstVariant ? compareAtOf(product, firstVariant) : 0) : product.compareAtPrice
 
   const off =
-    product.compareAtPrice > displayBase
+    compareAt > displayBase
       ? Math.round(
-          (1 - displayBase / product.compareAtPrice) * 100
+          (1 - displayBase / compareAt) * 100
         )
       : 0
+  // pack cards: a combination with its own price is sold at that price for every quantity (no pack price),
+  // exactly as the server charges it; otherwise the pack offers as they are
+  const ownUnit = grouped && firstVariant && Number(firstVariant.price) > 0 ? Number(firstVariant.price) : 0
+  const cardBase = ownUnit || product.price
+  const cardPacks = ownUnit ? packOffers.map((x) => ({ qty: x.qty, price: r2(ownUnit * x.qty) })) : packOffers
+  const fromText = t('fromPrice').replace('{amt}', money(range.min))
+  const showFrom = choosing && range.min !== range.max
 
   // Product gallery images plus variant images
   const extra = [
     ...new Set(
-      variants.map((v) => v.image).filter(Boolean)
+      [...variants.map((v) => v.image), ...types.flatMap((ty) => ty.values.map((x) => x.image))].filter(Boolean)
     ),
   ].filter(
     (url) => !images.some((image) => image.url === url)
@@ -262,7 +358,7 @@ function ProductView({ product }) {
 
   // Saving shown once, on the main picture (display only; no price is changed here)
   const hasPacks = packOffers.length > 0
-  const oldUnit = product.compareAtPrice > displayBase ? product.compareAtPrice : displayBase
+  const oldUnit = compareAt > displayBase ? compareAt : displayBase
   const oldTotal = oldUnit * safeQty
   const savePct = oldTotal > 0 && total < oldTotal ? Math.round((1 - total / oldTotal) * 100) : 0
 
@@ -288,15 +384,22 @@ function ProductView({ product }) {
   })
 
   // the sticky order bar (all screen sizes) shows whenever the main Order now button is NOT on screen
+  // The sticky Order now bar shows ONLY once the visitor has scrolled PAST the main Order now button: the button is
+  // off screen AND above it (its bottom edge above the top of the screen). Before reaching the button, or while it
+  // is (even partly) on screen, the bar is hidden. IntersectionObserver only (no scroll listener); its first answer
+  // comes straight away, so a page that loads already scrolled (anchor, back button, reload) is right at once.
   const ctaRef = useRef(null)
-  const [ctaVisible, setCtaVisible] = useState(true)
+  const [pastCta, setPastCta] = useState(false)
   useEffect(() => {
     const el = ctaRef.current
     if (!el || typeof IntersectionObserver === 'undefined') return
-    const io = new IntersectionObserver(([entry]) => setCtaVisible(entry.isIntersecting), { threshold: 0 })
+    const io = new IntersectionObserver(([entry]) => {
+      const top = entry.rootBounds ? entry.rootBounds.top : 0
+      setPastCta(!entry.isIntersecting && entry.boundingClientRect.bottom <= top)
+    }, { threshold: 0 })
     io.observe(el)
     return () => io.disconnect()
-  }, [])
+  }, [product._id])
 
   const barCanShow = !out
   useEffect(() => {
@@ -306,19 +409,26 @@ function ProductView({ product }) {
     return () => { document.body.style.paddingBottom = prev }
   }, [barCanShow])
 
+  // live visitors: which product this visitor is looking at (anonymous heartbeat, lib/live.js)
+  useEffect(() => {
+    liveProduct(product._id)
+    return () => liveProduct(null)
+  }, [product._id])
+
   // Facebook Pixel: ViewContent
   useEffect(() => {
     track('ViewContent', {
       content_ids: [product._id],
       content_name: product.name?.en || '',
       content_type: 'product',
-      value: product.price,
+      value: grouped ? range.min : product.price, // option types: the lowest price until one is chosen
       currency: 'QAR',
     })
-  }, [product._id, product.name, product.price])
+  }, [product._id, product.name, product.price, grouped, range.min])
 
 
   function addToCart(e) {
+    if (!ensureChosen()) return
     const lines = priced
     const button = e?.currentTarget
 
@@ -356,6 +466,7 @@ function ProductView({ product }) {
   const checkoutTracked = useRef(null)
   function openForm() {
     if (out) return
+    if (!ensureChosen()) return
     setFormOpen(true)
 
     if (checkoutTracked.current === product._id) return
@@ -383,9 +494,9 @@ function ProductView({ product }) {
   const showStockBar = !out && totalStock <= stockMax
 
   return (
-    <div className="mx-auto max-w-[1180px] px-4 pb-10 pt-4 md:px-6 md:pt-8">
+    <div className="nx-page pb-10 pt-4 md:pt-8">
       {/* top: gallery (left) + buy box (right) on wide screens; stacked on phones */}
-      <div className="grid gap-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:gap-10 lg:gap-16">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] md:gap-10 lg:grid-cols-[minmax(0,1fr)_clamp(420px,32vw,560px)] lg:gap-16">
         <ProductGallery
           images={galleryImages}
           video={product.video}
@@ -394,7 +505,7 @@ function ProductView({ product }) {
           focus={focus}
           badge={
             savePct > 0 || event ? (
-              <div className="absolute start-3 top-3 z-10 flex max-w-[70%] flex-wrap gap-2">
+              <div className="absolute start-3 top-3 z-[var(--z-content)] flex max-w-[70%] flex-wrap gap-2">
                 {savePct > 0 && (
                   <span className="rounded-full bg-accent px-3 py-1.5 text-xs font-bold text-white" aria-live="polite">
                     {t('youSave').replace('{amt}', `${savePct}%`)}
@@ -411,14 +522,14 @@ function ProductView({ product }) {
           }
         />
 
-        {/* Buy box: no card, no inner scroll, not sticky. Groups 24px apart, 8px inside a group. */}
-        <div className="flex min-w-0 flex-col gap-6">
+        {/* Buy box: glass card (radius 24, sheen), no inner scroll, not sticky. Groups 24px apart, 8px inside a group. */}
+        <div className="glass glass-sheen flex min-w-0 flex-col gap-6 self-start rounded-[24px] p-4 md:p-6">
           {/* 1. heading + secondary info */}
           <div className="flex flex-col gap-2">
             <nav aria-label={t('breadcrumb')} className="truncate text-xs text-gray-500">
-              <Link to="/shop" className="transition duration-150 hover:text-ink hover:underline">{t('shop')}</Link>
+              <Link to="/shop" className="tap-44 transition duration-150 hover:text-ink hover:underline">{t('shop')}</Link>
               {product.category && (
-                <>{' / '}<Link to={`/shop?category=${product.category.slug}`} className="transition duration-150 hover:text-ink hover:underline">{pick(product.category.name)}</Link></>
+                <>{' / '}<Link to={`/shop?category=${product.category.slug}`} className="tap-44 transition duration-150 hover:text-ink hover:underline">{pick(product.category.name)}</Link></>
               )}
               {' / '}<span aria-current="page">{pick(product.name)}</span>
             </nav>
@@ -467,18 +578,29 @@ function ProductView({ product }) {
             {/* price line only when there are no packs (with packs, prices show only in the pack cards) */}
             {!hasPacks && (
               <div className="flex flex-wrap items-baseline gap-x-2.5">
-                <span className="text-[32px] font-extrabold leading-none">{money(displayBase)}</span>
-                {off > 0 && <s className="text-gray-500">{money(product.compareAtPrice)}</s>}
+                <span className="text-[32px] font-extrabold leading-none">{showFrom ? fromText : money(displayBase)}</span>
+                {off > 0 && !showFrom && <s className="text-gray-500">{money(compareAt)}</s>}
               </div>
+            )}
+            {/* the chosen combination, e.g. "100 ml / Black" (with packs and nothing chosen: the from-price) */}
+            {grouped && !out && (firstVariant || (hasPacks && showFrom)) && (
+              <p className="-mt-2 text-sm text-gray-600" aria-live="polite">
+                {firstVariant ? t('optionChosen').replace('{v}', comboLabel(product, firstVariant.name, lang)) : fromText}
+              </p>
             )}
 
             {!out && (
-              <PackOffers base={product.price} compareAt={product.compareAtPrice} packs={packOffers}
+              <PackOffers base={grouped ? cardBase : product.price} compareAt={grouped ? compareAt : product.compareAtPrice}
+                packs={grouped ? cardPacks : packOffers}
                 qty={safeQty} max={maxQty} onPick={changeQty} />
             )}
 
             {/* option for each item */}
-            {variants.length > 0 && !out && (
+            {grouped && !out && (
+              <OptionPicker product={product} types={types} parts={unitParts} onPart={pickPart} onSame={samePartsForAll}
+                onSoldOut={setNotifyFor} missing={missing} groupRef={(i, ti, el) => { groupEls.current[`${i}:${ti}`] = el }} />
+            )}
+            {variants.length > 0 && !grouped && !out && (
               <VariantPicker variants={variants} picks={unitPicks} onPick={pickVariant} onSame={sameForAll} onSoldOut={setNotifyFor} />
             )}
 
@@ -488,7 +610,7 @@ function ProductView({ product }) {
 
             {/* free gift */}
             {product.gift && !out && (
-              <div className="flex items-center gap-3 rounded-2xl border border-line bg-white p-4 shadow-e1">
+              <div className="glass flex items-center gap-3 rounded-2xl p-4">
                 {product.gift.image && (
                   <img src={optimizeImg(product.gift.image, 120)} alt="" loading="lazy" width={56} height={56}
                     className="h-14 w-14 shrink-0 rounded-xl object-cover" />
@@ -513,7 +635,7 @@ function ProductView({ product }) {
               <div className="flex items-center gap-2">
                 {!hasPacks && <QtyStepper value={safeQty} onChange={changeQty} max={maxQty} />}
                 <button onClick={addToCart}
-                  className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-full border-[1.5px] border-ink px-4 text-[15px] font-semibold text-ink transition duration-150 hover:bg-ink hover:text-white">
+                  className="glass-btn min-h-12 flex-1 px-4 text-[15px]">
                   <ShoppingBag size={19} /> {t('addToCart')}
                 </button>
               </div>
@@ -521,14 +643,14 @@ function ProductView({ product }) {
 
             {/* main Order now button: the biggest thing in the buy box */}
             <button ref={ctaRef} onClick={openForm} disabled={out}
-              className="flex min-h-14 w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-4 text-[17px] font-bold text-white shadow-e1 transition duration-150 hover:bg-accent-hover hover:shadow-e2 disabled:opacity-50">
+              className="btn-primary-glass min-h-14 w-full px-4 py-4 text-[17px]">
               <Zap size={20} aria-hidden="true" />
-              {out ? t('outOfStock') : `${t('orderShort')} · ${money(total)}`}
+              {out ? t('outOfStock') : `${t('orderShort')} · ${showFrom ? fromText : money(total)}`}
             </button>
 
             {waHref && (
               <a href={waHref} target="_blank" rel="noreferrer"
-                className="flex min-h-11 items-center justify-center gap-2 rounded-full text-sm font-semibold text-gray-600 transition duration-150 hover:bg-quiet hover:text-ink">
+                className="glass-btn text-sm">
                 <WhatsAppIcon size={18} /> {t('askWhatsapp')}
               </a>
             )}
@@ -560,7 +682,7 @@ function ProductView({ product }) {
         )}
         {textDescription && (
           <Section title={t('description')}>
-            <p className="whitespace-pre-line leading-relaxed text-gray-700">{textDescription}</p>
+            <p className="max-w-[72ch] whitespace-pre-line leading-relaxed text-gray-700">{textDescription}</p>
           </Section>
         )}
         <Reviews productId={product._id} headingRef={reviewsHeading} />
@@ -573,23 +695,23 @@ function ProductView({ product }) {
       {/* Order form pop-up */}
       {!out && <OrderModal open={formOpen} onClose={closeForm} lines={priced} />}
 
-      {/* Sticky Order now bar, every screen size: shows when the main button is off screen; hidden while the
-          order form is open and for sold-out products. Centred to the column on wide screens. */}
+      {/* Sticky Order now bar, every screen size: shows only after scrolling PAST the main Order now button (see
+          pastCta); hidden while the order form, the cart, the drawer or a picture is open (CSS, index.css), and not
+          shown for sold-out products (as before). Slides up / fades in; never takes space or focus when hidden. */}
       {!out && (
         <div
-          aria-hidden={ctaVisible || formOpen}
-          inert={ctaVisible || formOpen}
-          className={`fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 transition-transform duration-300 motion-reduce:transition-none sm:px-4 ${
-            ctaVisible || formOpen ? 'translate-y-[120%]' : 'translate-y-0'
-          }`}
+          data-show={pastCta && !formOpen ? 'true' : undefined}
+          aria-hidden={!(pastCta && !formOpen)}
+          inert={!(pastCta && !formOpen)}
+          className="nx-sticky-bar nx-page fixed inset-x-0 bottom-0 z-[var(--z-sticky-bar)] pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2"
         >
-          <div className="mx-auto flex max-w-[1180px] items-center gap-3 rounded-2xl border border-line bg-white p-2.5 ps-4 shadow-e3">
+          <div className="nx-sticky-inner glass glass-float flex items-center gap-3 rounded-2xl p-2.5 ps-4">
             <div className="min-w-0 leading-tight">
               <div className="truncate text-xs text-gray-600">{(hasPacks && safeQty > 1 ? `${packLabel(safeQty, lang)} · ` : '')}{t('total')}</div>
-              <div className="text-lg font-extrabold">{money(total)}</div>
+              <div className="text-lg font-extrabold">{showFrom ? fromText : money(total)}</div>
             </div>
             <button onClick={openForm}
-              className="ms-auto min-h-12 flex-1 rounded-full bg-accent px-5 font-bold text-white transition hover:bg-accent-hover sm:max-w-xs">
+              className="btn-primary-glass ms-auto flex-1 px-5 sm:max-w-xs">
               {t('orderShort')}
             </button>
           </div>
@@ -641,7 +763,7 @@ export default function Product() {
 
   if (state.slug !== slug) {
     return (
-      <div className="mx-auto grid max-w-[1180px] animate-pulse gap-10 px-4 py-8 md:grid-cols-2 md:px-6">
+      <div className="nx-page grid animate-pulse gap-10 py-8 md:grid-cols-2">
         <div className="aspect-square rounded-3xl bg-gray-200" />
 
         <div className="space-y-4">
@@ -675,7 +797,7 @@ function MissingProduct() {
 
         <Link
           to="/shop"
-          className="inline-flex min-h-11 items-center rounded-full bg-ink px-6 text-white hover:bg-gray-800"
+          className="btn-primary-glass px-6"
         >
           {t('backToShop')}
         </Link>

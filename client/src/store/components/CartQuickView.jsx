@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion, useAnimate, useReducedMotion } from 'framer-motion'
 import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
@@ -11,7 +12,7 @@ import Recommendations from './Recommendations'
 // Cart icon + quick view (header). Hover opens it on desktop, a tap or the keyboard toggles it.
 // It never opens by itself after "Add to cart". All prices come from the cart provider (existing
 // pricing code): line total = line price x quantity, total = cart subtotal. Nothing is recalculated here.
-export default function CartQuickView() {
+export default function CartQuickView({ headerHidden = false }) {
   const { t, lang, pick, money } = useStore()
   const { items, count, subtotal, setQty, remove, setOpen: openDrawer } = useCart()
   const navigate = useNavigate()
@@ -56,6 +57,8 @@ export default function CartQuickView() {
   }, [open])
 
   useEffect(() => () => clearTimeout(leaveTimer.current), [])
+  // the header slides away on scroll down: the panel closes with it
+  const shown = open && !headerHidden
 
   const hoverOpen = (e) => {
     if (e.pointerType !== 'mouse') return
@@ -79,6 +82,20 @@ export default function CartQuickView() {
   }
   const isPack = (i) => i.qty > 1 && (i.packs || []).some((p) => Number(p.qty) === i.qty)
 
+  // phones: the page behind the open panel does not scroll (the page keeps its scroll position; the dim layer
+  // takes the touches and the panel scrolls on its own), and it is exactly where it was when the panel closes
+  useEffect(() => {
+    if (!shown || !window.matchMedia('(max-width: 767px)').matches) return
+    const y = window.scrollY
+    const html = document.documentElement.style
+    const prev = html.overflow
+    html.overflow = 'hidden'
+    return () => {
+      html.overflow = prev
+      if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y)
+    }
+  }, [shown])
+
   return (
     <div ref={wrap} className="relative" onPointerEnter={hoverOpen} onPointerLeave={hoverClose}>
       <button ref={button} type="button" onClick={toggle} aria-label={`${t('cart')}: ${count}`}
@@ -96,20 +113,30 @@ export default function CartQuickView() {
         {count > 0 && <span className="hidden text-sm font-semibold md:inline" dir="ltr">{money(subtotal)}</span>}
       </button>
 
+      {/* light dim behind the open panel (above the sticky Order now bar and the WhatsApp button, below the
+          header): a tap on it closes the panel. In a portal at <body>: the header's transform would otherwise
+          pin a "fixed" layer to the header box instead of the screen. */}
+      {shown && createPortal(
+        <div aria-hidden="true" onClick={() => setOpen(false)}
+          className="nx-cart-dim fixed inset-0 z-[var(--z-dropdown-overlay)] touch-none bg-[var(--glass-overlay)]" />,
+        document.body,
+      )}
       <AnimatePresence>
-        {open && (
+        {shown && (
           <motion.div ref={panel} id={panelId} role="dialog" aria-label={t('yourCart')}
             onClickCapture={(e) => { if (e.target.closest('a')) setOpen(false) }}
             initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
             transition={{ duration: reduce ? 0 : 0.15 }}
-            className="absolute end-0 top-full z-50 mt-2 w-[min(92vw,22rem)] rounded-2xl border border-line bg-white text-ink shadow-e3">
-            <div className="border-b px-4 py-3 text-sm font-bold">{t('yourCart')}</div>
+            className="glass glass-solid nx-drop absolute end-0 top-full z-[var(--z-dropdown)] mt-2 flex w-[min(92vw,22rem)] flex-col text-ink">
+            <div className="shrink-0 border-b px-4 py-3 text-sm font-bold">{t('yourCart')}</div>
 
             {items.length === 0 ? (
               <p className="px-4 py-8 text-center text-sm text-gray-500">{t('cartEmpty')}</p>
             ) : (
               <>
-                <ul className="max-h-[50vh] divide-y overflow-y-auto px-4">
+                {/* items + suggestions scroll; the title and the total always stay visible */}
+                <div className="nx-noscrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                <ul className="divide-y px-4">
                   {items.map((i) => (
                     <li key={i.key} className="py-3">
                       <div className="flex gap-3">
@@ -118,10 +145,10 @@ export default function CartQuickView() {
                         <div className="min-w-0 flex-1">
                           <div className="line-clamp-1 text-sm font-semibold">{pick(i.name)}</div>
                           <div className="text-xs text-gray-600">
-                            {[i.variantName, isPack(i) && packLabel(i.qty, lang)].filter(Boolean).join(' · ')}
+                            {[pick(i.variantLabel) || i.variantName, isPack(i) && packLabel(i.qty, lang)].filter(Boolean).join(' · ')}
                           </div>
                           <div className="mt-1.5 flex items-center justify-between gap-2">
-                            <div className="flex items-center rounded-full border">
+                            <div className="glass-btn gap-0">
                               <button type="button" onClick={() => setQty(i.key, i.qty - 1)} disabled={i.qty <= 1}
                                 aria-label={`${t('quantity')} −`} className="grid h-11 w-11 place-items-center rounded-full hover:bg-quiet disabled:opacity-40">
                                 <Minus size={14} />
@@ -150,17 +177,18 @@ export default function CartQuickView() {
                   ))}
                 </ul>
                 <Recommendations compact exclude={items.map((i) => i.productId)} className="border-t px-4 py-3" />
-                <div className="border-t p-4">
+                </div>
+                <div className="shrink-0 border-t p-4">
                   <div className="mb-3 flex justify-between text-sm font-bold">
                     <span>{t('total')}</span><span>{money(subtotal)}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <button type="button" onClick={go(() => openDrawer(true))}
-                      className="min-h-11 rounded-full border border-ink px-3 text-sm font-semibold hover:bg-quiet">
+                      className="glass-btn px-3 text-sm">
                       {t('viewCart')}
                     </button>
                     <button type="button" onClick={go(() => navigate('/checkout'))}
-                      className="min-h-11 rounded-full bg-ink px-3 text-sm font-semibold text-white hover:bg-gray-800">
+                      className="btn-primary-glass px-3 text-sm">
                       {t('checkout')}
                     </button>
                   </div>

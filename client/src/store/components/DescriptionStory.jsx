@@ -39,7 +39,7 @@ function buildRows(items) {
 
 function TextTile({ it, className = '' }) {
   return (
-    <div className={`flex flex-col justify-center rounded-[14px] border border-line bg-white p-5 shadow-e1 md:p-6 ${className}`}>
+    <div className={`glass flex flex-col justify-center rounded-[14px] p-5 md:p-6 ${className}`}>
       {it.title && <h3 className="text-lg font-bold leading-snug">{it.title}</h3>}
       {it.text && <p className={`whitespace-pre-line leading-relaxed text-gray-600 ${it.title ? 'mt-2' : ''}`}>{it.text}</p>}
     </div>
@@ -84,7 +84,7 @@ export default function DescriptionStory({ images = [], alt = '' }) {
   const rows = buildRows(open ? all : all.slice(0, FIRST))
 
   return (
-    <div className="mx-auto max-w-[900px]">
+    <div>
       <div className="space-y-[10px]">
         {rows.map((r) => {
           if (r.type === 'two') {
@@ -118,7 +118,7 @@ export default function DescriptionStory({ images = [], alt = '' }) {
       {images.length > FIRST && !open && (
         <div className="mt-6 flex justify-center">
           <button type="button" onClick={() => setOpen(true)} aria-expanded={open}
-            className="flex min-h-11 items-center gap-2 rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white transition hover:bg-gray-800">
+            className="glass-btn gap-2 px-6 text-sm">
             {t('showMore')} ({images.length - FIRST})
             <ChevronDown size={18} aria-hidden="true" />
           </button>

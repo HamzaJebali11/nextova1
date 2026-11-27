@@ -11,6 +11,7 @@ import {
 import { api } from '../lib/api'
 import { useAuth } from './useAuth'
 import OrderToasts from './components/OrderToasts'
+import { LiveDot } from './components/LiveNow'
 import { usePageMeta } from '../lib/seo'
 
 const links = [
@@ -118,6 +119,7 @@ export default function AdminLayout() {
             <NavLink key={to} to={to} end={end} className={linkClass}>
               <Icon size={18} /> {label}
               {badge && <Badge n={counts[badge]} className="ms-auto" />}
+              {to === '/admin/visitors' && <LiveDot className="ms-auto" />}
             </NavLink>
           ))}
         </nav>

@@ -54,7 +54,7 @@ export default function NotifyMe({ productId, variantName }) {
   }
 
   return (
-    <div className="relative rounded-2xl border border-line bg-white p-4 shadow-e1 md:p-6">
+    <div className="glass relative rounded-2xl p-4 md:p-6">
       <div className="mb-1 flex items-center gap-2 font-bold text-ink">
         <Bell size={18} /> {x.title}
       </div>
@@ -68,13 +68,13 @@ export default function NotifyMe({ productId, variantName }) {
             onChange={(e) => setWebsite(e.target.value)} className="absolute -left-[9999px] h-0 w-0 opacity-0" />
           <div className="flex gap-2">
             <div className="flex flex-1" dir="ltr">
-              <span className="grid place-items-center rounded-s-xl border border-e-0 bg-white px-3 text-sm text-gray-600">+974</span>
+              <span className="glass-input grid place-items-center rounded-e-none border-e-0 px-3 text-sm text-gray-600">+974</span>
               <input type="tel" inputMode="tel" autoComplete="tel" dir="ltr" value={phone} placeholder={x.phone} aria-label={x.phone}
                 onChange={(e) => setPhone(toLocalDigits(e.target.value))}
-                className="w-full rounded-e-xl border bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-gray-300" />
+                className="glass-input w-full rounded-s-none px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-gray-300" />
             </div>
             <button disabled={state === 'busy'}
-              className="rounded-xl bg-gray-900 px-5 text-sm font-semibold text-white hover:bg-gray-700 disabled:opacity-60">
+              className="btn-primary-glass min-h-11 rounded-xl px-5 text-sm">
               {state === 'busy' ? x.busy : x.btn}
             </button>
           </div>

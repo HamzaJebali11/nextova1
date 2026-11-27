@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Reveal from './Reveal'
 import { imgSrcSet, optimizeImg } from '../../lib/image'
 import { useStore } from '../storeContext'
+import { priceRange, priceText } from '../../lib/options'
 import { useCart } from '../../cart/cartContext'
 import { Stars } from './Stars'
 import BestSellerChip from './BestSellerChip'
@@ -17,7 +18,8 @@ export default function ProductCard({ p, index = 0 }) {
   const hasPacks = p.packs?.length > 0
   const hasGift = !!p.freeGift?.enabled
   const needsPage = hasVariants || hasPacks || hasGift
-  const off = p.compareAtPrice > p.price ? Math.round((1 - p.price / p.compareAtPrice) * 100) : 0
+  const ranged = priceRange(p).min !== priceRange(p).max // option types with different prices: "From"
+  const off = !ranged && p.compareAtPrice > p.price ? Math.round((1 - p.price / p.compareAtPrice) * 100) : 0
 
   function quickAdd() {
     add({ productId: p._id, slug: p.slug, name: p.name, image: p.images?.[0]?.url, price: p.price })
@@ -27,7 +29,7 @@ export default function ProductCard({ p, index = 0 }) {
 
   return (
     <Reveal delay={(index % 4) * 0.06}
-      className="nx-lift group h-full rounded-2xl border border-line bg-white p-2.5 shadow-e1">
+      className="glass nx-lift group h-full p-2.5">
       <Link to={`/product/${p.slug}`} className="relative block aspect-square overflow-hidden rounded-2xl bg-quiet">
         <img src={optimizeImg(p.images?.[0]?.url, 500)} srcSet={imgSrcSet(p.images?.[0]?.url, [240, 360, 500, 720])}
           sizes="(min-width: 1024px) 25vw, 50vw" width={500} height={500} decoding="async" alt={pick(p.name)} loading="lazy"
@@ -62,20 +64,18 @@ export default function ProductCard({ p, index = 0 }) {
         )}
 
         <div className="mt-1 flex items-baseline gap-2">
-          <span className="font-bold">{money(p.price)}</span>
+          <span className="font-bold">{priceText(p, money, t)}</span>
           {off > 0 && <s className="text-xs text-gray-500">{money(p.compareAtPrice)}</s>}
         </div>
 
         {!out && (needsPage ? (
           <Link to={`/product/${p.slug}`}
-            className="mt-3 flex min-h-11 items-center justify-center rounded-full border text-center text-sm font-medium transition hover:bg-gray-900 hover:text-white">
+            className="glass-btn mt-3 flex w-full text-center text-sm">
             {hasVariants ? t('selectOptions') : t('seeOffers')}
           </Link>
         ) : (
           <button onClick={quickAdd}
-            className={`mt-3 min-h-11 w-full rounded-full text-sm font-medium transition ${
-              added ? 'bg-emerald-600 text-white' : 'bg-gray-900 text-white hover:bg-emerald-600'
-            }`}>
+            className={`mt-3 w-full text-sm ${added ? 'btn-primary-glass min-h-11' : 'glass-btn'}`}>
             {added ? t('added') : t('addToCart')}
           </button>
         ))}

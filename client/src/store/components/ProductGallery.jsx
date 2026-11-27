@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Expand, Play } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Expand, Play } from 'lucide-react'
 import { imgSrcSet, optimizeImg } from '../../lib/image'
 import { GALLERY_SIZES } from '../../lib/prefetch'
 import { trackVideoPlay, videoPoster } from '../../lib/video'
@@ -16,6 +16,114 @@ function buildSlides(images, video, position) {
   if (!video?.url) return pics
   const at = position === 'first' ? 0 : position === 'last' ? pics.length : Math.min(1, pics.length)
   return [...pics.slice(0, at), { type: 'video', url: video.url }, ...pics.slice(at)]
+}
+
+// Thumbnail list.
+// Desktop: a vertical column exactly as tall as the big picture (the column is stretched by the flex row and the
+// list is absolutely positioned inside it, so it can never make the row taller and nothing jumps while loading).
+// Phones: the horizontal strip under the picture.
+// The list scrolls inside its box with no visible scrollbar; soft white fades (and on desktop small round arrows)
+// show only where there are more thumbnails; the active thumbnail is kept in view (the page itself never scrolls).
+function Thumbs({ slides, active, alt, onPick, keyOf }) {
+  const { t } = useStore()
+  const box = useRef(null)
+  const [more, setMore] = useState({ up: false, down: false, start: false, end: false })
+
+  const measure = useCallback(() => {
+    const el = box.current
+    if (!el) return
+    const x = Math.abs(el.scrollLeft) // negative in RTL (Chrome, Firefox, Safari)
+    const next = {
+      up: el.scrollTop > 1,
+      down: el.scrollTop + el.clientHeight < el.scrollHeight - 1,
+      start: x > 1,
+      end: x + el.clientWidth < el.scrollWidth - 1,
+    }
+    setMore((m) => (m.up === next.up && m.down === next.down && m.start === next.start && m.end === next.end ? m : next))
+  }, [])
+
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(el)
+    // pictures arriving can change the sizes too
+    el.addEventListener('load', measure, true)
+    return () => { ro?.disconnect(); el.removeEventListener('load', measure, true) }
+  }, [measure, slides.length])
+
+  // keep the active thumbnail in view, inside the list only (scrollBy on the list, never scrollIntoView)
+  useEffect(() => {
+    const el = box.current
+    const th = el?.children[active]
+    if (!el || !th) return
+    const pad = 36 // clear of the fade
+    const b = el.getBoundingClientRect()
+    const r = th.getBoundingClientRect()
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+    const vertical = el.scrollHeight > el.clientHeight + 1
+    if (vertical) {
+      if (r.top < b.top + pad) el.scrollBy({ top: r.top - b.top - pad, behavior })
+      else if (r.bottom > b.bottom - pad) el.scrollBy({ top: r.bottom - b.bottom + pad, behavior })
+    } else if (el.scrollWidth > el.clientWidth + 1) {
+      if (r.left < b.left + pad) el.scrollBy({ left: r.left - b.left - pad, behavior })
+      else if (r.right > b.right - pad) el.scrollBy({ left: r.right - b.right + pad, behavior })
+    }
+  }, [active])
+
+  const page = (dir) => {
+    const el = box.current
+    if (el) el.scrollBy({ top: dir * Math.max(80, el.clientHeight * 0.7), behavior: 'smooth' })
+  }
+  const arrow = 'pointer-events-auto grid h-11 w-11 place-items-center'
+  const dot = 'glass grid h-7 w-7 place-items-center rounded-full text-ink transition duration-150'
+
+  return (
+    <div className="relative mt-1 min-w-0 md:order-first md:mt-0 md:w-[76px] md:shrink-0">
+      <div ref={box} onScroll={measure}
+        className="flex gap-2 overflow-x-auto overscroll-contain p-1 [scrollbar-width:none] md:absolute md:inset-0 md:flex-col md:overflow-y-auto md:overflow-x-hidden [&::-webkit-scrollbar]:hidden">
+        {slides.map((s, i) => {
+          const on = i === active
+          const isVideo = s.type === 'video'
+          const thumb = isVideo ? videoPoster(s.url, 160) : optimizeImg(s.url, 160)
+          return (
+            <button key={keyOf(s)} type="button" onClick={() => onPick(i)} aria-current={on ? 'true' : undefined}
+              aria-label={isVideo ? t('videoTitle') : `${alt} ${i + 1}`}
+              className={`glass relative h-16 w-16 shrink-0 overflow-hidden rounded-xl ring-offset-2 transition duration-150 ${
+                on ? 'opacity-100 ring-2 ring-ink' : 'opacity-75 ring-1 ring-line hover:opacity-100 hover:ring-gray-400'
+              }`}>
+              {thumb && <img src={thumb} alt="" width={64} height={64} loading="lazy" decoding="async" className="h-full w-full object-cover" />}
+              {isVideo && (
+                <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/35 px-0.5 text-center text-white">
+                  <Play size={16} className="fill-current" aria-hidden="true" />
+                  <span className="line-clamp-2 text-[8.5px] font-semibold leading-tight">{t('videoTitle')}</span>
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* desktop: fades at the top / bottom with a round arrow (the fade never catches clicks, the arrow does) */}
+      <div aria-hidden={!more.up} className={`nx-fade-up pointer-events-none absolute inset-x-0 top-0 hidden h-14 justify-center transition-opacity duration-150 md:flex ${more.up ? 'opacity-100' : 'opacity-0'}`}>
+        {more.up && (
+          <button type="button" onClick={() => page(-1)} aria-label={t('morePicturesUp')} className={`${arrow} -mt-1`}>
+            <span className={dot}><ChevronUp size={16} aria-hidden="true" /></span>
+          </button>
+        )}
+      </div>
+      <div aria-hidden={!more.down} className={`nx-fade-down pointer-events-none absolute inset-x-0 bottom-0 hidden h-14 items-end justify-center transition-opacity duration-150 md:flex ${more.down ? 'opacity-100' : 'opacity-0'}`}>
+        {more.down && (
+          <button type="button" onClick={() => page(1)} aria-label={t('morePicturesDown')} className={`${arrow} -mb-1`}>
+            <span className={dot}><ChevronDown size={16} aria-hidden="true" /></span>
+          </button>
+        )}
+      </div>
+      {/* phones: fades on the sides (end = right in English, left in Arabic) */}
+      <div aria-hidden="true" className={`nx-fade-end pointer-events-none absolute inset-y-0 end-0 w-14 transition-opacity duration-150 md:hidden ${more.end ? 'opacity-100' : 'opacity-0'}`} />
+      <div aria-hidden="true" className={`nx-fade-start pointer-events-none absolute inset-y-0 start-0 w-10 transition-opacity duration-150 md:hidden ${more.start ? 'opacity-100' : 'opacity-0'}`} />
+    </div>
+  )
 }
 
 // focus = { url, n }: when it changes, the gallery shows that picture (used when a variant is chosen)
@@ -113,13 +221,15 @@ export default function ProductGallery({ images = [], video = null, videoPositio
   }
 
   const roundBtn =
-    'z-10 grid h-11 w-11 place-items-center rounded-full bg-white/90 text-ink shadow-e1 transition duration-150 hover:bg-white'
+    'glass glass-on-photo z-[var(--z-content)] grid h-11 w-11 place-items-center rounded-full text-ink transition duration-150'
   const many = slides.length > 1
   const keyOf = (s) => `${s.type}:${s.url}`
 
   return (
-    <div className="md:flex md:items-start md:gap-4" {...pause}>
-      <div className="relative min-w-0 overflow-hidden rounded-[18px] bg-quiet md:flex-1">
+    // self-start: the gallery is as tall as the big picture (never stretched by the buy box next to it),
+    // so the thumbnail column, which fills the row, is exactly as tall as the big picture
+    <div className="min-w-0 md:flex md:gap-4 md:self-start" {...pause}>
+      <div className="relative min-w-0 self-start overflow-hidden rounded-[18px] bg-quiet md:flex-1">
         <div ref={ref} onScroll={onScroll}
           className="flex snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {slides.map((s, i) => (
@@ -169,30 +279,7 @@ export default function ProductGallery({ images = [], video = null, videoPositio
         )}
       </div>
 
-      {many && (
-        <div className="mt-1 flex gap-2 overflow-x-auto p-1 [scrollbar-width:none] md:order-first md:mt-0 md:flex-col md:overflow-visible [&::-webkit-scrollbar]:hidden">
-          {slides.map((s, i) => {
-            const on = i === active
-            const isVideo = s.type === 'video'
-            const thumb = isVideo ? videoPoster(s.url, 160) : optimizeImg(s.url, 160)
-            return (
-              <button key={keyOf(s)} type="button" onClick={() => go(i)} aria-current={on ? 'true' : undefined}
-                aria-label={isVideo ? t('videoTitle') : `${alt} ${i + 1}`}
-                className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-quiet ring-offset-2 transition duration-150 ${
-                  on ? 'opacity-100 ring-2 ring-ink' : 'opacity-75 ring-1 ring-line hover:opacity-100 hover:ring-gray-400'
-                }`}>
-                {thumb && <img src={thumb} alt="" width={64} height={64} loading="lazy" decoding="async" className="h-full w-full object-cover" />}
-                {isVideo && (
-                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-black/35 px-0.5 text-center text-white">
-                    <Play size={16} className="fill-current" aria-hidden="true" />
-                    <span className="line-clamp-2 text-[8.5px] font-semibold leading-tight">{t('videoTitle')}</span>
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
+      {many && <Thumbs slides={slides} active={active} alt={alt} onPick={go} keyOf={keyOf} />}
 
       <AnimatePresence>
         {zoom !== null && (

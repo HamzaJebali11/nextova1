@@ -24,21 +24,21 @@ export default function Checkout() {
     return (
       <div className="px-4 py-24 text-center">
         <h1 className="mb-4 text-lg font-normal text-gray-600">{t('cartEmpty')}</h1>
-        <Link to="/shop" className="rounded-full bg-gray-900 px-6 py-2.5 text-white hover:bg-emerald-600">{t('continueShopping')}</Link>
+        <Link to="/shop" className="btn-primary-glass px-6">{t('continueShopping')}</Link>
       </div>
     )
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="mx-auto w-full max-w-5xl px-[var(--page-pad)] py-8">
       <h1 className="mb-6 text-2xl font-bold md:text-3xl">{t('checkoutTitle')}</h1>
       <div className="grid gap-8 lg:grid-cols-[1fr_24rem]">
-        <div className="order-2 rounded-2xl border border-line bg-white p-5 shadow-e1 lg:order-1 lg:row-span-2">
+        <div className="glass order-2 rounded-2xl p-5 lg:order-1 lg:row-span-2">
           <h2 className="mb-4 font-bold">{t('orderDetails')}</h2>
           <OrderForm lines={items} onPlaced={clear} />
         </div>
 
-        <div className="order-1 h-fit rounded-2xl border border-line bg-white p-5 shadow-e1 lg:order-2">
+        <div className="glass order-1 h-fit rounded-2xl p-5 lg:order-2">
           <h2 className="mb-2 font-bold">{t('orderSummary')}</h2>
           <ul className="divide-y">
             {items.map((i) => (
@@ -46,7 +46,7 @@ export default function Checkout() {
                 <img src={optimizeImg(i.image, 120)} alt="" width={64} height={64} className="h-16 w-16 shrink-0 rounded-xl bg-white object-cover" />
                 <div className="min-w-0 flex-1">
                   <div className="line-clamp-2 text-sm font-medium">{pick(i.name)}</div>
-                  {i.variantName && <div className="text-sm font-semibold text-emerald-700">{i.variantName}</div>}
+                  {i.variantName && <div className="text-sm font-semibold text-emerald-700">{pick(i.variantLabel) || i.variantName}</div>}
                   <div className="mt-1 text-sm font-semibold">{money(i.price * i.qty)}</div>
                   <div className="mt-2 flex items-center justify-between">
                     <QtyStepper value={i.qty} onChange={(q) => setQty(i.key, q)} />
@@ -69,7 +69,7 @@ export default function Checkout() {
         </div>
 
         <Recommendations exclude={items.map((i) => i.productId)}
-          className="order-3 h-fit min-w-0 rounded-2xl border border-line bg-white p-4 lg:col-start-2" />
+          className="glass order-3 h-fit min-w-0 rounded-2xl p-4 lg:col-start-2" />
       </div>
     </div>
   )

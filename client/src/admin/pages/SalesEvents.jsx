@@ -4,7 +4,8 @@ import { AnimatePresence } from 'framer-motion'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { api } from '../../lib/api'
 import { money } from '../../lib/constants'
-import { eventCountdown } from '../../lib/eventTime'
+import { eventCountdown, rangeParts } from '../../lib/eventTime'
+import { EventBannerView } from '../../store/components/EventBanner'
 import { FilterChip, ListTable, PageHeader, SidePanel, Tag, Th, Toolbar } from '../components/ListKit'
 import { btn } from '../components/listStyles'
 
@@ -79,7 +80,6 @@ export default function SalesEvents() {
   const all = list || []
   const count = (s) => all.filter((e) => e.status === s).length
   const rows = all.filter((e) => show === 'all' || e.status === show)
-  const preview = f.minPct > 0 ? `${f.minPct}% to ${f.maxPct || 'Y'}% off` : `Up to ${f.maxPct || 'Y'}% off`
 
   return (
     <div>
@@ -151,13 +151,14 @@ export default function SalesEvents() {
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={f.active} onChange={(e) => setF({ ...f, active: e.target.checked })} /> Active (shown while its dates are live)
               </label>
-              <div className="rounded-xl bg-gray-100 p-3 text-sm">
+              <div className="rounded-xl border border-line bg-white p-3 text-sm">
                 <div className="mb-1 text-xs text-gray-500">Banner preview</div>
-                <span className="inline-flex items-center gap-2 rounded-full bg-ink px-3 py-1 text-[12px] text-white">
-                  <b>{f.name.en || 'Event name'}</b>
-                  <span className="rounded-full bg-accent px-2 font-bold text-white">{preview}</span>
-                  <span>5 days left</span>
-                </span>
+                {/* the same banner the shop shows (same look, see .nx-event in index.css); English texts */}
+                <div className="px-1 pb-4 pt-1">
+                  <EventBannerView name={f.name.en || 'Event name'} time="5 days left"
+                    range={rangeParts({ minPct: Number(f.minPct) || 0, maxPct: f.maxPct || 'Y' },
+                      (k) => (k === 'eventRange' ? '{x}% to {y}% off' : 'Up to {y}% off'))} />
+                </div>
                 <p className="mt-2 text-xs text-gray-600">Text only. Product prices stay exactly as you set them on each product.</p>
               </div>
               <div className="flex justify-end gap-2">

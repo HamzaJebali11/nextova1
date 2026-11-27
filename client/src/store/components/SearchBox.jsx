@@ -5,6 +5,7 @@ import { Search } from 'lucide-react'
 import { api } from '../../lib/api'
 import { optimizeImg } from '../../lib/image'
 import { useStore } from '../storeContext'
+import { priceText } from '../../lib/options'
 import BestSellerChip from './BestSellerChip'
 import { Stars } from './Stars'
 
@@ -85,13 +86,13 @@ export default function SearchBox({ autoFocus = false }) {
           placeholder={t('searchPlaceholder')} aria-label={t('searchPlaceholder')} autoFocus={autoFocus}
           type="search" enterKeyHint="search" role="combobox" aria-expanded={show} aria-controls={`${id}-list`} aria-autocomplete="list"
           aria-activedescendant={show && active >= 0 ? `${id}-${active}` : undefined}
-          className="min-h-10 w-full rounded-full border border-line bg-white py-2 pe-4 ps-10 text-sm outline-none transition focus:border-ink focus:ring-2 focus:ring-black/10" />
+          className="glass-input min-h-11 w-full rounded-full py-2 pe-4 ps-10 text-sm outline-none transition focus:ring-2 focus:ring-black/10" />
       </form>
 
       <AnimatePresence>
         {show && (
           <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
-            className="absolute inset-x-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border bg-white shadow-e3">
+            className="glass glass-solid nx-drop nx-noscrollbar absolute inset-x-0 top-full z-[var(--z-dropdown)] mt-2 overflow-y-auto">
             {none && (
               <div className="border-b px-3 py-2.5 text-sm">
                 <div className="font-semibold">{t('noResultsFor').replace('{q}', q.trim())}</div>
@@ -111,7 +112,7 @@ export default function SearchBox({ autoFocus = false }) {
                         {p.isBestSeller && <BestSellerChip small />}
                       </span>
                     </span>
-                    <span className={`shrink-0 text-sm ${p.inStock ? 'text-gray-700' : 'text-gray-400 line-through'}`}>{money(p.price)}</span>
+                    <span className={`shrink-0 text-sm ${p.inStock ? 'text-gray-700' : 'text-gray-400 line-through'}`}>{priceText(p, money, t)}</span>
                   </Link>
                 </li>
               ))}

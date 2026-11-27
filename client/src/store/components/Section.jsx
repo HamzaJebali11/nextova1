@@ -20,8 +20,8 @@ export default function Section({ id, title, action, headingRef, children, flush
   const inStack = useContext(StackCtx)
   const bare = flush || inStack
   return (
-    <Reveal as="section" id={id} className={`scroll-mt-28 ${bare ? '' : 'mx-auto mt-8 max-w-[1180px] px-4 md:mt-12 md:px-6'} ${className}`}>
-      <div className={`rounded-2xl border border-line bg-white shadow-e1 ${bodyClass}`}>
+    <Reveal as="section" id={id} className={`scroll-mt-28 ${bare ? '' : 'nx-page mt-8 md:mt-12'} ${className}`}>
+      <div className={`glass rounded-2xl ${bodyClass}`}>
         {(title || action) && (
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
             {title && <h2 ref={headingRef} tabIndex={headingRef ? -1 : undefined} className="text-xl font-bold leading-tight tracking-tight outline-none md:text-[22px]">{title}</h2>}
