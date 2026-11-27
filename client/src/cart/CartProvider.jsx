@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CartCtx } from './cartContext'
-import { repriceCart } from '../lib/pricing'
+import { MAX_LINE, repriceCart } from '../lib/pricing'
 
 const KEY = 'nx_cart'
 
@@ -20,10 +20,10 @@ function merge(prev, lines) {
     const found = next.find((i) => i.key === key)
     if (found) {
       next = next.map((i) =>
-        i.key === key ? { ...i, ...line, key, qty: Math.min(20, i.qty + line.qty) } : i
+        i.key === key ? { ...i, ...line, key, qty: Math.min(MAX_LINE, i.qty + line.qty) } : i
       )
     } else {
-      next.push({ ...line, key, qty: Math.min(20, line.qty) })
+      next.push({ ...line, key, qty: Math.min(MAX_LINE, line.qty) })
     }
   }
   return repriceCart(next)
@@ -48,7 +48,7 @@ export function CartProvider({ children }) {
     addMany: (lines) => setItems((prev) => merge(prev, lines)),
     setQty: (key, qty) =>
       setItems((prev) =>
-        repriceCart(prev.map((i) => (i.key === key ? { ...i, qty: Math.max(1, Math.min(20, qty)) } : i)))
+        repriceCart(prev.map((i) => (i.key === key ? { ...i, qty: Math.max(1, Math.min(MAX_LINE, qty)) } : i)))
       ),
     remove: (key) => setItems((prev) => repriceCart(prev.filter((i) => i.key !== key))),
     clear: () => setItems([]),

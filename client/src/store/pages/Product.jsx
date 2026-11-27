@@ -6,7 +6,7 @@ import { fetchOnce } from '../../lib/prefetch'
 import { resolveAngle } from '../../lib/angle'
 import { optimizeImg } from '../../lib/image'
 import { track } from '../../lib/pixel'
-import { packLabel, repriceCart } from '../../lib/pricing'
+import { MAX_LINE, packLabel, packPlan, repriceCart } from '../../lib/pricing'
 import { flyToCart } from '../../lib/flyToCart'
 import { usePageMeta } from '../../lib/seo'
 import { useStore } from '../storeContext'
@@ -142,7 +142,7 @@ function ProductView({ product }) {
 
   const startQty =
     wanted > 1 && packs.some((p) => Number(p.qty) === wanted)
-      ? Math.min(wanted, 20, Math.max(1, totalStock))
+      ? Math.min(wanted, MAX_LINE, Math.max(1, totalStock))
       : 1
 
   const [qty, setQty] = useState(startQty)
@@ -158,7 +158,11 @@ function ProductView({ product }) {
   const closeForm = useCallback(() => setFormOpen(false), [])
 
   const out = totalStock <= 0
-  const maxQty = Math.max(1, Math.min(20, totalStock))
+  // most pieces: the stock (all switched-on options together, as before) and "Maximum pieces per order" (Settings)
+  const perOrder = Number(settings.maxPerOrder ?? 10)
+  const orderCap = perOrder > 0 ? Math.min(perOrder, MAX_LINE) : MAX_LINE
+  const maxQty = Math.max(1, Math.min(orderCap, totalStock))
+  const maxBy = totalStock <= orderCap ? 'stock' : 'order'
   const safeQty = Math.min(qty, maxQty)
 
   // One option per unit
@@ -595,6 +599,39 @@ function ProductView({ product }) {
                 qty={safeQty} max={maxQty} onPick={changeQty} />
             )}
 
+            {/* more than the largest pack: any number of pieces (priced by the pack rule, lib/pricing.js priceFor) */}
+            {!out && hasPacks && (() => {
+              const sizes = [1, ...packOffers.map((p) => Number(p.qty))]
+              const plan = sizes.includes(safeQty) || ownUnit ? null : packPlan(safeQty, grouped ? cardBase : product.price, grouped ? cardPacks : packOffers)
+              const partText = (p) => (p.size === 1 ? packLabel(p.count, lang) : `${p.count > 1 ? `${p.count} × ` : ''}${packLabel(p.size, lang)}`)
+              return (
+                <div className="flex flex-col gap-2" data-more-qty>
+                  <span className="text-sm font-semibold">{t('needMore')}</span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <QtyStepper value={safeQty} onChange={changeQty} max={maxQty} />
+                    {!sizes.includes(safeQty) && (
+                      <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-sm" aria-live="polite">
+                        <span className="text-ink">
+                          {plan ? `${packLabel(safeQty, lang)} = ${plan.map(partText).join(' + ')}` : packLabel(safeQty, lang)}
+                        </span>
+                        <span className="font-bold text-ink">{showFrom ? fromText : money(total)}</span>
+                        {!showFrom && (
+                          <span className="rounded-md bg-accent px-1.5 py-0.5 text-[12px] font-bold text-white">
+                            {t('eachPrice').replace('{amt}', money(r2(total / safeQty)))}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  {safeQty >= maxQty && maxQty > 1 && (
+                    <p className="text-xs font-medium text-gray-700" aria-live="polite">
+                      {(maxBy === 'stock' ? t('maxStock') : t('maxOrder')).replace('{n}', maxQty)}
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
+
             {/* option for each item */}
             {grouped && !out && (
               <OptionPicker product={product} types={types} parts={unitParts} onPart={pickPart} onSame={samePartsForAll}
@@ -639,6 +676,11 @@ function ProductView({ product }) {
                   <ShoppingBag size={19} /> {t('addToCart')}
                 </button>
               </div>
+            )}
+            {!out && !hasPacks && safeQty >= maxQty && maxQty > 1 && (
+              <p className="text-xs font-medium text-gray-700" aria-live="polite">
+                {(maxBy === 'stock' ? t('maxStock') : t('maxOrder')).replace('{n}', maxQty)}
+              </p>
             )}
 
             {/* main Order now button: the biggest thing in the buy box */}

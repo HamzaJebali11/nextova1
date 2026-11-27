@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion, useAnimate, useReducedMotion } from 'framer-motion'
 import { Minus, Plus, ShoppingBag, Trash2 } from 'lucide-react'
 import { optimizeImg } from '../../lib/image'
-import { packLabel } from '../../lib/pricing'
+import { cartMax, packLabel } from '../../lib/pricing'
 import { useStore } from '../storeContext'
 import { useCart } from '../../cart/cartContext'
 import Recommendations from './Recommendations'
@@ -13,7 +13,7 @@ import Recommendations from './Recommendations'
 // It never opens by itself after "Add to cart". All prices come from the cart provider (existing
 // pricing code): line total = line price x quantity, total = cart subtotal. Nothing is recalculated here.
 export default function CartQuickView({ headerHidden = false }) {
-  const { t, lang, pick, money } = useStore()
+  const { t, lang, pick, money, settings } = useStore()
   const { items, count, subtotal, setQty, remove, setOpen: openDrawer } = useCart()
   const navigate = useNavigate()
   const reduce = useReducedMotion()
@@ -154,7 +154,7 @@ export default function CartQuickView({ headerHidden = false }) {
                                 <Minus size={14} />
                               </button>
                               <span className="w-6 text-center text-sm font-semibold" aria-live="polite">{i.qty}</span>
-                              <button type="button" onClick={() => setQty(i.key, i.qty + 1)} disabled={i.qty >= 20}
+                              <button type="button" onClick={() => setQty(i.key, i.qty + 1)} disabled={i.qty >= cartMax(settings)}
                                 aria-label={`${t('quantity')} +`} className="grid h-11 w-11 place-items-center rounded-full hover:bg-quiet disabled:opacity-40">
                                 <Plus size={14} />
                               </button>

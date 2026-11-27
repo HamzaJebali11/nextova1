@@ -83,6 +83,8 @@ const payloadOf = (s) => ({
   deliveryCountdown: s.deliveryCountdown !== false,
   deliveryCutoff: /^([01]\d|2[0-3]):[0-5]\d$/.test(s.deliveryCutoff || '') ? s.deliveryCutoff : '17:00',
   stockBarMax: Math.max(1, Math.round(Number(s.stockBarMax) || 15)),
+  // most pieces of one product per order (0 = only the stock limits it); default 10
+  maxPerOrder: Math.min(100, Math.max(0, Math.round(Number(s.maxPerOrder ?? 10) || 0))),
   deliveryInfo: { en: s.deliveryInfo?.en || '', ar: s.deliveryInfo?.ar || '' },
   returnsInfo: { en: s.returnsInfo?.en || '', ar: s.returnsInfo?.ar || '' },
   pixelId: s.pixelId || '',
@@ -318,6 +320,9 @@ export default function Settings() {
             </Field>
             <Field label="Show “Only N left in stock” at or below" hint="Uses the real stock. Default 15.">
               <input type="number" min="1" className={inputCls} value={s.stockBarMax ?? 15} onChange={(e) => set('stockBarMax', e.target.value)} />
+            </Field>
+            <Field label="Maximum pieces per order" hint="Of one product, all its options together. Default 10. 0 or empty = only the stock limits it. Checked again by the server.">
+              <input type="number" min="0" max="100" className={inputCls} value={s.maxPerOrder ?? 10} onChange={(e) => set('maxPerOrder', e.target.value)} />
             </Field>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

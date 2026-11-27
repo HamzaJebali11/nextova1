@@ -9,9 +9,10 @@ import { useCart } from '../../cart/cartContext'
 import QtyStepper from '../components/QtyStepper'
 import OrderForm from '../components/OrderForm'
 import Recommendations from '../components/Recommendations'
+import { cartMax } from '../../lib/pricing'
 
 export default function Checkout() {
-  const { t, pick, money } = useStore()
+  const { t, pick, money, settings } = useStore()
   usePageMeta({ title: t('checkoutTitle'), robots: 'noindex' })
   const { items, setQty, remove, clear } = useCart()
   const has = items.length > 0
@@ -49,7 +50,7 @@ export default function Checkout() {
                   {i.variantName && <div className="text-sm font-semibold text-emerald-700">{pick(i.variantLabel) || i.variantName}</div>}
                   <div className="mt-1 text-sm font-semibold">{money(i.price * i.qty)}</div>
                   <div className="mt-2 flex items-center justify-between">
-                    <QtyStepper value={i.qty} onChange={(q) => setQty(i.key, q)} />
+                    <QtyStepper value={i.qty} onChange={(q) => setQty(i.key, q)} max={cartMax(settings)} />
                     <button onClick={() => remove(i.key)} className="rounded-full p-2 text-red-500 hover:bg-red-50">
                       <Trash2 size={16} />
                     </button>
