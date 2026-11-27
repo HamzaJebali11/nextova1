@@ -9,7 +9,7 @@
     "start": "node src/index.js",
     "create-admin": "node src/scripts/createAdmin.js",
     "reset-password": "node src/scripts/resetPassword.js",
-    "test": "node --test src/utils/pricing.test.js"
+    "test": "node --test src/utils/pricing.test.js src/utils/planner.test.js"
   },
   "keywords": [],
   "author": "",

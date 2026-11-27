@@ -16,16 +16,30 @@ const FIELDS = [
   'price1', 'price2', 'price3', 'mix1', 'mix2', 'mix3', 'deliveryRate', 'targetPct',
 ]
 
+const numOrEmpty = (v, k, max = 1e9) => {
+  if (v === '' || v === null || v === undefined) return ''
+  const n = Number(v)
+  if (!Number.isFinite(n) || n < 0 || n > max) throw httpError(400, `Invalid value for ${k}`)
+  return n
+}
+
 function clean(body = {}) {
   const out = {}
-  for (const k of FIELDS) {
-    const v = body[k]
-    if (v === '' || v === null || v === undefined) out[k] = ''
-    else {
-      const n = Number(v)
-      if (!Number.isFinite(n) || n < 0 || n > 1e9) throw httpError(400, `Invalid value for ${k}`)
-      out[k] = n
-    }
+  for (const k of FIELDS) out[k] = numOrEmpty(body[k], k)
+  // the pack rows of the product (Step 46): size (pieces), selling price, share of orders %, optional label.
+  // Plans saved before have no rows: they keep working from price1..3 / mix1..3 (sizes 1, 2, 3).
+  if (body.packRows !== undefined) {
+    if (!Array.isArray(body.packRows) || body.packRows.length < 1 || body.packRows.length > 20) throw httpError(400, 'Invalid pack rows')
+    out.packRows = body.packRows.map((r, i) => {
+      const size = Number(r?.size)
+      if (!Number.isInteger(size) || size < 1 || size > 1000) throw httpError(400, `Invalid pack size in row ${i + 1}`)
+      return {
+        size,
+        price: numOrEmpty(r.price, `price of row ${i + 1}`),
+        share: numOrEmpty(r.share, `share of row ${i + 1}`, 100),
+        label: String(r.label || '').slice(0, 60),
+      }
+    })
   }
   return out
 }
