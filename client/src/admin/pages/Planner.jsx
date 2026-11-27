@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, CheckCircle2, Info, RotateCcw } from 'lucide-react'
 import { api } from '../../lib/api'
 import { money } from '../../lib/constants'
-import { calc, defaultsFor, DEFAULTS } from '../../lib/planner'
+import { calc, defaultsFor, DEFAULTS, hasOptionPrices, rowsOf } from '../../lib/planner'
 
 const inputCls = 'w-full rounded-lg border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-gray-900'
 
@@ -19,6 +19,22 @@ function Num({ label, k, f, set, hint, suffix, placeholder = '0', hideLabel = fa
     </label>
   )
 }
+
+// one number cell of a pack row (price or share)
+function RowNum({ label, value, onChange, suffix }) {
+  return (
+    <label className="block">
+      <span className="sr-only">{label}</span>
+      <div className="relative">
+        <input type="number" min="0" step="any" inputMode="decimal" className={`${inputCls} min-h-11 ${suffix ? 'pe-12' : ''}`}
+          placeholder="0" value={value ?? ''} onChange={(e) => onChange(e.target.value)} />
+        {suffix && <span className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">{suffix}</span>}
+      </div>
+    </label>
+  )
+}
+
+const packName = (n) => `${n} pack${n > 1 ? 's' : ''}`
 
 function Card({ title, children, note }) {
   return (
@@ -75,7 +91,10 @@ export default function Planner() {
     let cancelled = false
     api(`/plans/${pid}`).then((plan) => {
       if (cancelled) return
-      const next = plan?.inputs ? { ...defaultsFor(product), ...plan.inputs } : defaultsFor(product)
+      // a plan saved before the real pack rows keeps its 1 / 2 / 3 rows and numbers (in memory; saved only on Save)
+      const next = plan?.inputs
+        ? { ...defaultsFor(product), ...plan.inputs, packRows: rowsOf({ ...DEFAULTS, ...plan.inputs }) }
+        : defaultsFor(product)
       setF(next)
       setSavedJson(JSON.stringify(next))
       setLoadedPid(pid)
@@ -86,6 +105,11 @@ export default function Planner() {
 
   const r = useMemo(() => calc(f), [f])
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }))
+  const rows = rowsOf(f)
+  const setRow = (idx, k, v) => setF((s) => ({ ...s, packRows: rowsOf(s).map((row, j) => (j === idx ? { ...row, [k]: v } : row)) }))
+  // "Balance to 100%": the last row takes whatever the other rows leave (never below 0)
+  const othersTotal = rows.slice(0, -1).reduce((sum, row) => sum + (Math.max(0, Number(row.share) || 0)), 0)
+  const balance = () => setRow(rows.length - 1, 'share', Math.max(0, Math.round((100 - othersTotal) * 1000) / 1000))
   const dirty = JSON.stringify(f) !== savedJson
 
   async function save() {
@@ -127,8 +151,8 @@ export default function Planner() {
 
       {pid && (
         <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
-          {/* ---------------- inputs ---------------- */}
-          <div className="space-y-4">
+          {/* ---------------- inputs ---------------- (min-w-0: the wide price table scrolls inside its box on phones) */}
+          <div className="min-w-0 space-y-4">
             <Card title="Stock and product cost" note="Landed cost per unit = (factory × units + packaging × units + China shipping + other) ÷ units. Empty fields count as 0.">
               <div className="grid gap-3 sm:grid-cols-3">
                 <Num label="Units ordered in total" k="units" f={f} set={set} />
@@ -178,8 +202,15 @@ export default function Planner() {
               )}
             </Card>
 
-            <Card title="Pack prices and sales mix" note="Prices are prefilled from the product's packs and only change here, never on the product. Average units per order = Σ share × units; AOV = Σ share × pack price.">
-              <div className="relative overflow-x-auto">
+            <Card title="Pack prices and sales mix" note="Rows = this product's real packs. Prices are prefilled from the product's packs and only change here, never on the product. Average units per order = Σ share × units; AOV = Σ share × pack price.">
+              {product && hasOptionPrices(product) && (
+                <p className="flex gap-1.5 rounded-lg bg-gray-100 p-2 text-xs text-gray-700">
+                  <Info size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                  This product has prices per option (for example per size). The Planner uses the product's base price.
+                </p>
+              )}
+              {/* at least 4 rows high, so switching products rarely moves what is below */}
+              <div className="relative min-h-[14.5rem] overflow-x-auto">
                 <table className="w-full min-w-[30rem] text-sm">
                   <thead>
                     <tr className="text-xs text-gray-500">
@@ -190,22 +221,35 @@ export default function Planner() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[1, 2, 3].map((n) => (
-                      <tr key={n}>
-                        <td className="py-1.5 pe-3 font-medium">{n} pack{n > 1 ? 's' : ''}</td>
-                        <td className="pe-3"><Num label={`Selling price of ${n} pack(s)`} hideLabel k={`price${n}`} f={f} set={set} suffix="QAR" /></td>
-                        <td className="pe-3 text-gray-700">{money(r.perUnit[n - 1].unitPrice)}</td>
-                        <td><Num label={`Share of orders that are ${n} pack(s)`} hideLabel k={`mix${n}`} f={f} set={set} suffix="%" /></td>
+                    {rows.map((row, idx) => (
+                      <tr key={`${row.size}-${idx}`} data-pack-row={row.size}>
+                        <td className="py-1.5 pe-3 font-medium">
+                          {packName(row.size)}
+                          {row.label && <span className="block text-[11px] font-normal text-gray-500">{row.label}</span>}
+                        </td>
+                        <td className="pe-3"><RowNum label={`Selling price of ${packName(row.size)}`} value={row.price} onChange={(v) => setRow(idx, 'price', v)} suffix="QAR" /></td>
+                        <td className="pe-3 text-gray-700">{money(r.perUnit[idx]?.unitPrice || 0)}</td>
+                        <td><RowNum label={`Share of orders that are ${packName(row.size)}`} value={row.share} onChange={(v) => setRow(idx, 'share', v)} suffix="%" /></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              {!r.mixOk && (
-                <p className="flex items-center gap-1.5 text-xs font-semibold text-red-700">
-                  <AlertTriangle size={14} aria-hidden="true" /> The sales mix adds up to {r.mixTotal}%, it must total 100%.
-                </p>
-              )}
+              <div className="flex flex-wrap items-center gap-3 text-sm" data-mix-total>
+                <span className={r.mixOk ? 'font-semibold' : 'font-semibold text-red-700'}>Total: {r.mixTotal}%</span>
+                {!r.mixOk && (
+                  <>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold text-red-700">
+                      <AlertTriangle size={14} aria-hidden="true" /> The shares must add up to 100%.
+                    </span>
+                    <button type="button" onClick={balance} disabled={othersTotal > 100}
+                      className="min-h-11 rounded-lg border bg-white px-3 text-xs font-semibold hover:bg-gray-100 disabled:opacity-50"
+                      title={othersTotal > 100 ? 'The other rows already add up to more than 100%' : undefined}>
+                      Balance to 100%
+                    </button>
+                  </>
+                )}
+              </div>
             </Card>
 
             <Card title="Ads target" note="Target CPA = target % × break-even CPA. Default 70%.">
@@ -228,6 +272,16 @@ export default function Planner() {
           </div>
 
           {/* ---------------- results ---------------- */}
+          {!r.mixOk && (
+            <aside className="lg:sticky lg:top-4" data-results-blocked>
+              <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 shadow-sm" role="alert">
+                <div className="mb-1 flex items-center gap-2 font-semibold"><AlertTriangle size={18} aria-hidden="true" /> Results paused</div>
+                The shares of orders add up to {r.mixTotal}%. They must total 100% before the numbers mean anything.
+                Fix the shares or press "Balance to 100%".
+              </section>
+            </aside>
+          )}
+          {r.mixOk && (
           <aside className="space-y-4 lg:sticky lg:top-4">
             <section className="rounded-2xl border bg-white p-4 shadow-sm">
               <div className={`mb-4 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold ${S.cls}`} role="status">
@@ -284,9 +338,9 @@ export default function Planner() {
               <table className="w-full text-sm">
                 <thead><tr className="text-xs text-gray-500"><th className="py-1 text-start">Pack</th><th className="text-end">Unit price</th><th className="text-end">Max ad spend / unit</th></tr></thead>
                 <tbody className="divide-y">
-                  {r.perUnit.map((u) => (
-                    <tr key={u.pack}>
-                      <td className="py-1.5">{u.pack} pack{u.pack > 1 ? 's' : ''}</td>
+                  {r.perUnit.map((u, idx) => (
+                    <tr key={`${u.pack}-${idx}`} data-unit-row={u.pack}>
+                      <td className="py-1.5">{packName(u.pack)}</td>
                       <td className="text-end">{money(u.unitPrice)}</td>
                       <td className={`text-end font-semibold ${u.maxAdPerUnit <= 0 ? 'text-red-700' : ''}`}>{money(u.maxAdPerUnit)}</td>
                     </tr>
@@ -296,6 +350,7 @@ export default function Planner() {
               <p className="mt-2 text-[11px] text-gray-500">Max ad spend per unit = unit price − landed cost per unit (before delivery and failed orders).</p>
             </section>
           </aside>
+          )}
         </div>
       )}
     </div>
