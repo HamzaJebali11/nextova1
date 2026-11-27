@@ -44,6 +44,8 @@ const settingsSchema = new mongoose.Schema({
   // product page: "Order within 3h 12m and get it within 2 working days" (Qatar time cut-off, HH:MM)
   deliveryCountdown: { type: Boolean, default: true },
   deliveryCutoff: { type: String, default: '17:00', match: /^([01]\d|2[0-3]):[0-5]\d$/ },
+  // most pieces of ONE product in one order (storefront quantity and server check); 0 = only the stock limits it
+  maxPerOrder: { type: Number, default: 10, min: 0, max: 100 },
   // product page: "Only N left in stock" bar shows when the real stock is at or below this number
   stockBarMax: { type: Number, default: 15, min: 1, max: 1000 },
   // product page accordions (a product can override them)

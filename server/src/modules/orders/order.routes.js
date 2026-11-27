@@ -9,7 +9,7 @@ import { asyncHandler } from '../../utils/asyncHandler.js'
 import { httpError } from '../../utils/httpError.js'
 import { protect } from '../../middleware/auth.js'
 import { sendOrderEmail } from '../../utils/mailer.js'
-import { bestTotal } from '../../utils/pricing.js'
+import { priceFor, MAX_LINE } from '../../utils/pricing.js'
 import { reserveStock, releaseStock } from '../../utils/stock.js'
 import { comboDetails, comboProblem, ownCost } from '../../utils/options.js'
 import { withRealCost } from '../../utils/realCost.js'
@@ -44,7 +44,7 @@ const createSchema = z.object({
   items: z.array(z.object({
     productId: z.string().length(24),
     variantName: z.string().max(100).optional(),
-    qty: z.number().int().min(1).max(20),
+    qty: z.number().int().min(1).max(MAX_LINE),
   })).min(1).max(30),
   offer: z.boolean().optional(), // the "leaving" discount (only works if you switched it on)
   source: z.enum(['website', 'whatsapp']).default('website'),
@@ -77,6 +77,10 @@ function attributionOf(a) {
 
 // ---- public: place an order ----
 router.post('/', orderLimiter, asyncHandler(async (req, res) => {
+  // a clear answer for a wrong quantity (not a number, a decimal, below 1, above the line ceiling)
+  if (Array.isArray(req.body?.items) && req.body.items.some((i) => !Number.isInteger(i?.qty) || i.qty < 1 || i.qty > MAX_LINE)) {
+    throw httpError(400, 'Please choose a quantity of at least 1 piece.', 'يرجى اختيار كمية قطعة واحدة على الأقل.')
+  }
   const data = createSchema.parse(req.body)
   if (data.website) return res.status(201).json({ orderNumber: 'NX-0000', total: 0 }) // bot: fake success
 
@@ -115,10 +119,21 @@ router.post('/', orderLimiter, asyncHandler(async (req, res) => {
       allQty[id] = (allQty[id] || 0) + r.it.qty
       if (r.pooled) pooledQty[id] = (pooledQty[id] || 0) + r.it.qty
     }
+    // "Maximum pieces per order" (Settings; 0 = only the stock limits it), per product, all its options together
+    const perOrder = Number(settings.maxPerOrder ?? 10)
+    if (perOrder > 0) {
+      for (const [id, q] of Object.entries(allQty)) {
+        if (q > perOrder) {
+          const p = byId.get(id)
+          throw httpError(400, `You can order at most ${perOrder} pieces of ${p.name.en} in one order.`,
+            `يمكنك طلب ${perOrder} قطع كحد أقصى من ${p.name.ar || p.name.en} في الطلب الواحد.`)
+        }
+      }
+    }
     const unitPrice = {}
     for (const [id, q] of Object.entries(pooledQty)) {
       const p = byId.get(id)
-      unitPrice[id] = bestTotal(q, p.price, p.packs) / q
+      unitPrice[id] = priceFor(q, p.price, p.packs) / q
     }
 
     // 3) reserve stock and build the order lines (price always comes from the database)

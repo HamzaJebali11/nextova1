@@ -24,7 +24,7 @@ const schema = z.object({
   items: z.array(z.object({
     productId: z.string().length(24),
     variantName: z.string().max(100).optional(),
-    qty: z.number().int().min(1).max(20),
+    qty: z.number().int().min(1).max(100), // = MAX_LINE (utils/pricing.js)
   })).min(1).max(30),
   total: z.number().min(0).max(1000000).optional(),
   utm: z.object({

@@ -1,3 +1,8 @@
+// ======================================================================================================
+// PACK PRICES. This block is IDENTICAL in client/src/lib/pricing.js and server/src/utils/pricing.js
+// (the server's numbers are the ones that count; the shop shows the same numbers).
+// ======================================================================================================
+
 // Cheapest way to buy exactly `qty` units: single units at `base`, or any mix of pack offers.
 // packs: [{ qty, price }] where price is the TOTAL for that many units.
 export function bestTotal(qty, base, packs = []) {
@@ -11,4 +16,43 @@ export function bestTotal(qty, base, packs = []) {
     dp[n] = best
   }
   return Math.round(dp[qty] * 100) / 100
+}
+
+// the most pieces of one product in one order line (a technical ceiling; the shop's own limit is the
+// "Maximum pieces per order" setting, and the stock)
+export const MAX_LINE = 100
+
+// Price of `qty` pieces (Step 45). Up to the largest pack: exactly bestTotal (unchanged). Above the largest
+// pack: never more than the price of buying MORE pieces (more pieces may never cost less than fewer), so
+// price(qty) = the cheapest exact price of any quantity from qty up to MAX_LINE. With usual packs (a bigger
+// pack is never cheaper in total than a smaller quantity) this is simply bestTotal.
+export function priceFor(qty, base, packs = []) {
+  const n = Math.max(0, Math.floor(Number(qty) || 0))
+  const offers = (packs || []).filter((p) => Number(p.qty) > 1 && Number(p.price) >= 0)
+  const largest = offers.reduce((m, p) => Math.max(m, Number(p.qty)), 1)
+  if (n <= largest) return bestTotal(n, base, packs)
+  const top = Math.max(n, MAX_LINE)
+  let best = bestTotal(top, base, packs)
+  for (let m = top - 1; m >= n; m--) best = Math.min(best, bestTotal(m, base, packs))
+  return best
+}
+
+// How `qty` pieces are made of packs, for display: [{ size, count }] (largest pack first; size 1 = single
+// pieces), or null when the price of `qty` comes from a larger quantity (unusual pack prices).
+export function packPlan(qty, base, packs = []) {
+  const n = Math.max(0, Math.floor(Number(qty) || 0))
+  const offers = (packs || []).filter((p) => Number(p.qty) > 1 && Number(p.price) >= 0)
+  if (priceFor(n, base, packs) !== bestTotal(n, base, packs)) return null
+  const dp = [0], from = [0]
+  for (let k = 1; k <= n; k++) {
+    let best = dp[k - 1] + base, size = 1
+    for (const p of offers) {
+      if (p.qty <= k && dp[k - p.qty] + p.price < best) { best = dp[k - p.qty] + p.price; size = Number(p.qty) }
+    }
+    dp[k] = best
+    from[k] = size
+  }
+  const count = {}
+  for (let k = n; k > 0; k -= from[k]) count[from[k]] = (count[from[k]] || 0) + 1
+  return Object.entries(count).map(([size, c]) => ({ size: Number(size), count: c })).sort((a, b) => b.size - a.size)
 }

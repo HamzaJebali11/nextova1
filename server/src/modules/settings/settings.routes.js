@@ -30,6 +30,7 @@ router.get('/', asyncHandler(async (req, res) => {
     deliveryCountdown: s.deliveryCountdown !== false,
     deliveryCutoff: s.deliveryCutoff || '17:00',
     stockBarMax: s.stockBarMax || 15,
+    maxPerOrder: s.maxPerOrder ?? 10,
     deliveryInfo: s.deliveryInfo,
     returnsInfo: s.returnsInfo,
     social: s.social,
