@@ -12,6 +12,10 @@ import Visit from '../stats/stats.model.js'
 import Settings from '../settings/settings.model.js'
 import { searchProducts, invalidateSearch } from '../../utils/search.js'
 import { markBestSellers, bestSellerIds, refreshBestSellers } from '../../utils/bestSellers.js'
+import { optionTypesProblem, priceRange } from '../../utils/options.js'
+import { httpError } from '../../utils/httpError.js'
+import rateLimit from 'express-rate-limit'
+import { heroProducts } from '../../utils/heroProducts.js'
 
 const router = Router()
 
@@ -26,7 +30,7 @@ const SORTS = {
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // admin view of a product: private cost fields + the real cost per unit (base cost + ads per unit)
-const PRIVATE = '+costPrice +unitsPurchased'
+const PRIVATE = '+costPrice +unitsPurchased +variants.cost'
 async function adminView(id) {
   const [p, ads] = await Promise.all([
     Product.findById(id).select(PRIVATE).populate('category', 'name slug').lean(),
@@ -167,12 +171,22 @@ router.get('/:slug/proof', asyncHandler(async (req, res) => {
   res.json(data)
 }))
 
+// public: the home page hero card products (Step 39). Only id, slug, name, picture, price, old price, saving %,
+// best seller flag, rating and in-stock flag; never cost or stock numbers. Read only.
+const heroLimiter = rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: true, legacyHeaders: false, message: { message: 'Too many requests' } })
+router.get('/hero', heroLimiter, asyncHandler(async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=60')
+  res.json(await heroProducts())
+}))
+
 // public: live search suggestions (picture, name, price), at most 8; with no result, popular products instead
 router.get('/search', asyncHandler(async (req, res) => {
   const q = String(req.query.q || '').slice(0, 80)
   const limit = Math.min(8, Math.max(1, Number(req.query.limit) || 6))
   const view = (p) => ({
     _id: p._id, slug: p.slug, name: p.name, price: p.price, compareAtPrice: p.compareAtPrice,
+    // products with option types: lowest / highest combination price ("From QAR X" when they differ)
+    priceMin: priceRange(p).min, priceMax: priceRange(p).max,
     image: p.images?.[0]?.url, inStock: (p.stock || 0) > 0,
     ratingAvg: p.ratingAvg || 0, ratingCount: p.ratingCount || 0,
   })
@@ -180,7 +194,7 @@ router.get('/search', asyncHandler(async (req, res) => {
   let popular = []
   if (found.length === 0) {
     popular = (await Product.find({ isActive: true, stock: { $gt: 0 } }).sort({ soldCount: -1 }).limit(limit)
-      .select('name slug price compareAtPrice images stock ratingAvg ratingCount').lean()).map(view)
+      .select('name slug price compareAtPrice images stock ratingAvg ratingCount optionTypes variants.price variants.enabled').lean()).map(view)
   }
   res.set('Cache-Control', 'public, max-age=60')
   res.json({ q, items: await markBestSellers(found), popular: await markBestSellers(popular) })
@@ -220,7 +234,22 @@ router.get('/:slug', asyncHandler(async (req, res) => {
   res.json({ product: await markBestSellers(product), related: await markBestSellers(related) })
 }))
 
+// admin: open orders per option, so the product form can warn before a value with open orders is removed (read only)
+router.get('/:id/variant-usage', protect, asyncHandler(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.json({})
+  const id = new mongoose.Types.ObjectId(req.params.id)
+  const rows = await Order.aggregate([
+    { $match: { 'items.product': id, status: { $nin: ['delivered', 'cancelled', 'returned'] } } },
+    { $unwind: '$items' },
+    { $match: { 'items.product': id, 'items.variantName': { $nin: [null, ''] } } },
+    { $group: { _id: '$items.variantName', orders: { $addToSet: '$_id' } } },
+  ])
+  res.json(Object.fromEntries(rows.map((r) => [r._id, r.orders.length])))
+}))
+
 router.post('/', protect, asyncHandler(async (req, res) => {
+  const bad = optionTypesProblem(req.body)
+  if (bad) throw httpError(400, bad)
   const slug = await uniqueSlug(Product, req.body.slug || req.body.name?.en)
   const doc = await Product.create({ ...req.body, slug })
   invalidateSearch(); refreshBestSellers()
@@ -228,6 +257,8 @@ router.post('/', protect, asyncHandler(async (req, res) => {
 }))
 
 router.put('/:id', protect, asyncHandler(async (req, res) => {
+  const bad = optionTypesProblem(req.body)
+  if (bad) throw httpError(400, bad)
   const update = { ...req.body }
   if (update.slug) update.slug = await uniqueSlug(Product, update.slug, req.params.id)
   const doc = await Product.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after', runValidators: true })

@@ -58,6 +58,7 @@ export async function sendOrderEmail(order, settings = {}) {
   </div>`
 
   const res = await fetch(API_URL, {
+    signal: AbortSignal.timeout(10000), // a provider that never answers must not hang the request (10 s)
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({

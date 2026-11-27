@@ -9,6 +9,7 @@ export async function sendEmail({ to, subject, html, attachments }) {
     return { sent: false, reason: key ? 'dry run' : 'email not set up', logged: true }
   }
   const res = await fetch('https://api.resend.com/emails', {
+    signal: AbortSignal.timeout(10000), // a provider that never answers must not hang the request (10 s)
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({

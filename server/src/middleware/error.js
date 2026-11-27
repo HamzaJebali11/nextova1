@@ -35,5 +35,6 @@ export function errorHandler(err, req, res, next) {
   res.status(status).json({
     // internal error details stay in the server log (shown to the client only in development)
     message: status >= 500 && process.env.NODE_ENV !== 'development' ? 'Server error' : err.message,
+    ...(status < 500 && err.messageAr ? { messageAr: err.messageAr } : {}),
   })
 }

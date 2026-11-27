@@ -15,7 +15,11 @@ export const FAIL_REASONS = ['refused', 'no_answer', 'wrong_address', 'changed_m
 const itemSchema = new mongoose.Schema({
   product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
   name: String,
-  variantName: String,
+  variantName: String, // the option as printed everywhere, e.g. "Red" or "100 ml / Black"
+  // products with option types: the chosen value of each type, e.g. [{ type: 'Size', value: '100 ml' }].
+  // Older orders only have variantName.
+  options: { type: [{ type: { type: String }, value: String, _id: false }], default: undefined },
+  variantNameAr: String, // the same option in Arabic (for Arabic texts), when the product has Arabic names
   price: Number,
   cost: { type: Number, default: 0 },   // your cost per unit, saved at the time of the order
   qty: { type: Number, min: 1 },

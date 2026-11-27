@@ -6,6 +6,7 @@ import { asyncHandler } from '../../utils/asyncHandler.js'
 import { httpError } from '../../utils/httpError.js'
 import { protect } from '../../middleware/auth.js'
 import { reserveStock, releaseStock } from '../../utils/stock.js'
+import { comboDetails, ownCost } from '../../utils/options.js'
 import { liveEvent } from '../events/event.routes.js'
 import { normalizeQatarPhone, PHONE_MESSAGE } from '../../utils/phone.js'
 import { orderFlags, isFlagged } from '../../utils/orderFlags.js'
@@ -20,7 +21,7 @@ const code = z.string().trim().max(10).regex(/^[0-9A-Za-z/-]*$/, 'Use letters, n
 
 const itemSchema = z.object({
   productId: z.string().length(24),
-  variantName: z.string().max(80).optional(),
+  variantName: z.string().max(100).optional(),
   qty: z.number().int().min(1).max(1000),
   price: z.number().min(0).max(1000000),
   cost: z.number().min(0).max(1000000).optional(),
@@ -70,7 +71,7 @@ router.post('/', asyncHandler(async (req, res) => {
 
   try {
     const ids = [...new Set(data.items.map((i) => i.productId))]
-    const products = await Product.find({ _id: { $in: ids } }).select('+costPrice')
+    const products = await Product.find({ _id: { $in: ids } }).select('+costPrice +variants.cost')
     const byId = new Map(products.map((p) => [String(p._id), p]))
 
     const lines = []
@@ -95,8 +96,9 @@ router.post('/', asyncHandler(async (req, res) => {
         product: p._id,
         name: p.name.en,
         variantName: variant?.name,
+        ...comboDetails(p, variant),
         price: it.price,
-        cost: it.cost ?? p.costPrice ?? 0,
+        cost: it.cost ?? ownCost(variant) ?? p.costPrice ?? 0,
         qty: it.qty,
         image: variant?.image || p.images?.[0]?.url,
       })

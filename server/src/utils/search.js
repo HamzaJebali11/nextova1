@@ -50,7 +50,7 @@ export function invalidateSearch() { index = null; cache.clear() }
 async function getIndex() {
   if (index && Date.now() - builtAt < TTL) return index
   const [products, cats] = await Promise.all([
-    Product.find({ isActive: true }).select('name slug sku tags category price compareAtPrice stock images soldCount bestSeller packs ratingAvg ratingCount').lean(),
+    Product.find({ isActive: true }).select('name slug sku tags category price compareAtPrice stock images soldCount bestSeller packs ratingAvg ratingCount optionTypes variants.price variants.enabled').lean(),
     Category.find().select('name parent').lean(),
   ])
   const catName = new Map(cats.map((c) => [String(c._id), normalize(`${c.name?.en || ''} ${c.name?.ar || ''}`)]))

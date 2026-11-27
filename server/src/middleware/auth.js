@@ -8,7 +8,8 @@ export const protect = asyncHandler(async (req, res, next) => {
   if (!token) return res.status(401).json({ message: 'Not authorized' })
 
   try {
-    const { id } = jwt.verify(token, process.env.JWT_SECRET)
+    // only the algorithm the server signs with (HS256): no 'none', no other HMAC variant
+    const { id } = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] })
     const admin = await Admin.findById(id)
     if (!admin || !admin.isActive) throw new Error('inactive')
     req.admin = admin

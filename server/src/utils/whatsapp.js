@@ -24,6 +24,7 @@ export async function sendOrderWhatsApp(order) {
     clean(order.items.filter((i) => i.price > 0).map((i) => i.name).slice(0, 3).join(', '), 80) || 'your order'
 
   const res = await fetch(`https://graph.facebook.com/${version}/${phoneId}/messages`, {
+    signal: AbortSignal.timeout(10000), // a provider that never answers must not hang the request (10 s)
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({

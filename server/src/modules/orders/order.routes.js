@@ -11,6 +11,7 @@ import { protect } from '../../middleware/auth.js'
 import { sendOrderEmail } from '../../utils/mailer.js'
 import { bestTotal } from '../../utils/pricing.js'
 import { reserveStock, releaseStock } from '../../utils/stock.js'
+import { comboDetails, comboProblem, ownCost } from '../../utils/options.js'
 import { withRealCost } from '../../utils/realCost.js'
 import { attributionFilter, adKeyOf } from '../../utils/attribution.js'
 import { liveEvent } from '../events/event.routes.js'
@@ -87,17 +88,20 @@ router.post('/', orderLimiter, asyncHandler(async (req, res) => {
 
   try {
     const ids = [...new Set(data.items.map((i) => i.productId))]
-    const products = await Product.find({ _id: { $in: ids }, isActive: true }).select('+costPrice')
+    const products = await Product.find({ _id: { $in: ids }, isActive: true }).select('+costPrice +variants.cost')
     const byId = new Map(products.map((p) => [String(p._id), p]))
 
     // 1) check every line
     const rows = data.items.map((it) => {
       const product = byId.get(it.productId)
-      if (!product) throw httpError(400, 'A product in your cart is no longer available')
+      if (!product) throw httpError(400, 'A product in your cart is no longer available', 'أحد المنتجات في سلتك لم يعد متوفراً')
       let variant = null
       if (product.variants.length) {
         variant = product.variants.find((v) => v.name === it.variantName)
-        if (!variant) throw httpError(400, `Please choose an option for ${product.name.en}`)
+        // products with option types: every type chosen, the pair exists and is switched on
+        const bad = comboProblem(product, variant, it.variantName)
+        if (bad) throw httpError(bad.status, bad.en, bad.ar)
+        if (!variant) throw httpError(400, `Please choose an option for ${product.name.en}`, `يرجى اختيار خيار لـ ${product.name.ar || product.name.en}`)
       }
       // a variant with its own price is sold at that price, without pack offers
       return { it, product, variant, pooled: !(variant && variant.price) }
@@ -121,15 +125,19 @@ router.post('/', orderLimiter, asyncHandler(async (req, res) => {
     for (const r of rows) {
       const id = String(r.product._id)
       if (!(await reserveStock(r.product._id, r.variant?.name, r.it.qty))) {
-        throw httpError(409, `Sorry, ${r.product.name.en}${r.variant ? ` (${r.variant.name})` : ''} is out of stock`)
+        const ar = comboDetails(r.product, r.variant).variantNameAr || r.variant?.name
+        throw httpError(409, `Sorry, ${r.product.name.en}${r.variant ? ` (${r.variant.name})` : ''} is out of stock`,
+          `عذراً، ${r.product.name.ar || r.product.name.en}${r.variant ? ` (${ar})` : ''} غير متوفر حالياً`)
       }
       reserved.push({ id: r.product._id, variantName: r.variant?.name, qty: r.it.qty })
       lines.push({
         product: r.product._id,
         name: r.product.name.en,
         variantName: r.variant?.name,
+        ...comboDetails(r.product, r.variant), // options [{ type, value }] + Arabic name (products with option types)
         price: r.pooled ? unitPrice[id] : r.variant.price,
-        cost: r.product.costPrice || 0,
+        // a combination with its own cost uses it; otherwise the product cost, exactly as before
+        cost: ownCost(r.variant) ?? (r.product.costPrice || 0),
         qty: r.it.qty,
         image: r.variant?.image || r.product.images?.[0]?.url,
       })

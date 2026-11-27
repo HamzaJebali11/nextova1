@@ -19,7 +19,7 @@ import { qatarPhoneField } from '../../utils/phone.js'
 
 const schema = z.object({
   productId: z.string().length(24),
-  variantName: z.string().max(80).optional(),
+  variantName: z.string().max(100).optional(),
   phone: qatarPhoneField(),
   lang: z.enum(['en', 'ar']).default('en'),
   website: z.string().optional(), // hidden spam trap

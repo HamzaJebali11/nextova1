@@ -1,7 +1,8 @@
-import { Router } from 'express'
+import express, { Router } from 'express'
 import { z } from 'zod'
-import rateLimit from 'express-rate-limit'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import Visit from './stats.model.js'
+import LiveVisitor from './live.model.js'
 import Order from '../orders/order.model.js'
 import Product from '../products/product.model.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
@@ -181,6 +182,95 @@ router.get('/visitors', protect, asyncHandler(async (req, res) => {
     devices: devices.map((d) => ({ name: d._id || 'unknown', visitors: d.visitors })),
     products: productHits.map((p) => ({ slug: p._id, name: nameOf[p._id] || p._id, visitors: p.visitors })),
   })
+}))
+
+// ======================= LIVE VISITORS (Step 42) =======================
+// A live visitor = an anonymous visitor whose heartbeat arrived in the last 5 minutes.
+// (LIVE_WINDOW_SECONDS only shortens this window for local tests; it is not set in production.)
+const liveWindowMs = () => (Number(process.env.LIVE_WINDOW_SECONDS) > 0 ? Number(process.env.LIVE_WINDOW_SECONDS) : 300) * 1000
+
+// the collection and its TTL index are created on the first heartbeat only (never at server start)
+let liveReady = null
+const ensureLive = () => (liveReady ||= LiveVisitor.createIndexes().catch((e) => { liveReady = null; throw e }))
+
+const liveSchema = z.object({
+  visitorId: z.string().min(8).max(64).regex(/^[a-zA-Z0-9-]+$/),
+  page: z.enum(['home', 'shop', 'category', 'product', 'cart', 'checkout', 'confirmation', 'other']),
+  productId: z.string().regex(/^[a-f0-9]{24}$/).optional(),
+  device: z.enum(['phone', 'tablet', 'desktop']),
+}).strict() // any other field (name, phone, ...) is refused
+
+// about 6 heartbeats a minute per visitor (one every 30 s is normal), on top of the general API limit
+const liveLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 6,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const v = req.body?.visitorId
+    return typeof v === 'string' && /^[a-zA-Z0-9-]{8,64}$/.test(v) ? `v:${v}` : ipKeyGenerator(req.ip)
+  },
+  message: { message: 'Too many requests' },
+})
+const LIVE_MAX_BYTES = 512
+
+// ---- public: heartbeat (page load + every 30 s while the tab is visible) ----
+// Sent as text/plain (a "simple" request: no extra CORS preflight round trip on phones); JSON is accepted too.
+router.post('/live', (req, res, next) => {
+  // small payload only (the body is a few short fields)
+  if (Number(req.get('content-length') || 0) > LIVE_MAX_BYTES || (req.rawBody && req.rawBody.length > LIVE_MAX_BYTES)) {
+    return res.status(413).json({ message: 'Too large' })
+  }
+  next()
+}, express.text({ type: 'text/plain', limit: LIVE_MAX_BYTES }), (req, res, next) => {
+  if (typeof req.body === 'string') {
+    try { req.body = JSON.parse(req.body) } catch { return res.status(400).json({ message: 'Invalid heartbeat' }) }
+  }
+  next()
+}, liveLimiter, asyncHandler(async (req, res) => {
+  // bots, and any request that carries the admin login, are not counted
+  if (BOT.test(req.get('user-agent') || '') || req.get('authorization')) return res.sendStatus(204)
+  const parsed = liveSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ message: 'Invalid heartbeat' })
+  const d = parsed.data
+  await ensureLive()
+  await LiveVisitor.updateOne(
+    { _id: d.visitorId },
+    { $set: { page: d.page, device: d.device, lastSeen: new Date(), product: d.page === 'product' && d.productId ? d.productId : null } },
+    { upsert: true },
+  )
+  res.sendStatus(204)
+}))
+
+// ---- admin: who is on the site right now (cached 5 s for all admin tabs) ----
+let liveCache = { at: 0, value: null }
+router.get('/live', protect, asyncHandler(async (req, res) => {
+  const now = Date.now()
+  if (!liveCache.value || now - liveCache.at > 5000) {
+    const list = await LiveVisitor.find({ lastSeen: { $gte: new Date(now - liveWindowMs()) } }).select('page device product').lean()
+    const byPage = { home: 0, shop: 0, category: 0, product: 0, cart: 0, checkout: 0, confirmation: 0, other: 0 }
+    const byDevice = { phone: 0, tablet: 0, desktop: 0 }
+    const views = new Map()
+    for (const v of list) {
+      if (v.page in byPage) byPage[v.page]++
+      if (v.device in byDevice) byDevice[v.device]++
+      if (v.page === 'product' && v.product) views.set(String(v.product), (views.get(String(v.product)) || 0) + 1)
+    }
+    const topIds = [...views.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
+    const names = new Map((await Product.find({ _id: { $in: topIds.map(([id]) => id) } }).select('name slug').lean()).map((p) => [String(p._id), p]))
+    liveCache = {
+      at: now,
+      value: {
+        total: list.length,
+        byPage,
+        byDevice,
+        top: topIds.map(([id, count]) => ({ id, name: names.get(id)?.name || { en: '(deleted product)' }, slug: names.get(id)?.slug, count })),
+        windowSeconds: liveWindowMs() / 1000,
+      },
+    }
+  }
+  res.set('Cache-Control', 'no-store')
+  res.json({ ...liveCache.value, at: new Date(liveCache.at).toISOString() })
 }))
 
 export default router

@@ -1,12 +1,33 @@
 import mongoose from 'mongoose'
 
+// One sellable option (old products: a single list such as Red / Blue).
+// With option types (see optionTypes below) each variant is ONE combination, e.g. "100 ml / Black":
+// its name is the values joined with " / " (English), so stock, orders, waitlist and every printout
+// keep working by name exactly as before. The new fields have no stored default: older documents are
+// never rewritten and read as "switched on, product cost, product compare-at price".
 const variantSchema = new mongoose.Schema({
   name: { type: String, required: true },
   sku: String,
-  price: Number,
+  price: Number, // empty = the product price (and the pack offers)
   stock: { type: Number, default: 0 },
   image: String,
+  // combination values in option-type order, English names: [{ type: 'Size', value: '100 ml' }, ...]
+  options: { type: [{ type: { type: String }, value: String, _id: false }], default: undefined },
+  enabled: Boolean, // false = switched off (not sold); empty = on
+  compareAtPrice: Number, // optional "was" price of this combination
+  cost: { type: Number, min: 0, select: false }, // private: own cost per unit; empty = the product cost
 })
+
+// an option type (Size, Color) and its values, each with an optional picture
+const optionTypeSchema = new mongoose.Schema({
+  name: { en: { type: String, required: true, trim: true }, ar: { type: String, trim: true } },
+  values: [{
+    en: { type: String, required: true, trim: true },
+    ar: { type: String, trim: true },
+    image: String,
+    _id: false,
+  }],
+}, { _id: false })
 
 const angleSchema = new mongoose.Schema({
   slug: { type: String, required: true, lowercase: true, trim: true, match: [/^[a-z0-9][a-z0-9-]{0,29}$/, 'Slug: letters, numbers and - only'] },
@@ -48,6 +69,12 @@ const productSchema = new mongoose.Schema({
   stock: { type: Number, default: 0, min: 0 },
   lowStockAlert: { type: Number, default: 5 },
   variants: [variantSchema],
+  // up to 2 option types (Size, Color). Empty or missing = the plain variant list above (older products).
+  optionTypes: {
+    type: [optionTypeSchema],
+    default: undefined,
+    validate: { validator: (list) => !list || list.length <= 2, message: 'At most 2 option types' },
+  },
 
   // pack offers: price is the TOTAL for that many units (qty 1 is the normal price)
   packs: [{

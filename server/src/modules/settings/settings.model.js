@@ -68,6 +68,13 @@ const settingsSchema = new mongoose.Schema({
     email: { type: String, trim: true, maxlength: 200 },
     noOrderHours: { type: Number, default: 0, min: 0, max: 720 }, // 0 = off
   },
+  // home page first screen (hero product card, Step 39): auto = up to 5 visible in-stock products, best sellers
+  // first then newest; manual = the products picked in the admin, in that order (hidden / sold-out ones skipped)
+  hero: {
+    mode: { type: String, enum: ['auto', 'manual'], default: 'auto' },
+    products: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }], validate: [(a) => a.length <= 5, 'At most 5 hero products'] },
+    seconds: { type: Number, default: 3, min: 2, max: 10 },
+  },
   features: { type: Map, of: Boolean },
   extra: mongoose.Schema.Types.Mixed,
 }, { timestamps: true })

@@ -13,6 +13,8 @@ import Product from '../modules/products/product.model.js'
 // - Nothing is stored: the value is calculated every time, so adding, editing or deleting an
 //   ads entry (or changing the cost or units) changes it straight away. Old orders are never rewritten.
 
+import { ownCost } from './options.js'
+
 export const r2 = (n) => Math.round((Number(n) || 0) * 100) / 100
 
 export function effectiveUnits(p) {
@@ -43,14 +45,32 @@ export function realCostOf(p, adTotal = 0) {
     realCost: r2(baseCost + adPerUnit),
     // ads were spent but there are no units to spread them over
     needsUnits: adTotal > 0 && units <= 0,
+    // combinations with their OWN cost per unit: { "100 ml / Black": 12 } (only those that have one).
+    // Their real cost is that cost + the same ads per unit; every other line keeps the product's real cost.
+    variantCosts: variantCostsOf(p),
   }
+}
+
+function variantCostsOf(p) {
+  const out = {}
+  for (const v of p?.variants || []) {
+    const c = ownCost(v)
+    if (c !== null && v.name) out[v.name] = r2(c)
+  }
+  return out
+}
+
+// real cost per unit of one product line: the combination's own cost (when filled in) or the product's
+function costOfLine(c, item) {
+  const own = item?.variantName ? c.variantCosts?.[item.variantName] : undefined
+  return own === undefined ? { realCost: c.realCost, baseCost: c.baseCost } : { realCost: r2(own + c.adPerUnit), baseCost: own }
 }
 
 // Map(productId -> realCostOf(...)) for the given ids (or every product)
 export async function realCostMap(ids) {
   const valid = ids ? [...new Set(ids.map(String))].filter((id) => mongoose.isValidObjectId(id)) : null
   const [products, ads] = await Promise.all([
-    Product.find(valid ? { _id: { $in: valid } } : {}).select('+costPrice stock soldCount unitsPurchased').lean(),
+    Product.find(valid ? { _id: { $in: valid } } : {}).select('+costPrice stock soldCount unitsPurchased variants.name variants.cost').lean(),
     adTotalsByProduct(),
   ])
   return new Map(products.map((p) => [String(p._id), realCostOf(p, ads[String(p._id)] || 0)]))
@@ -60,7 +80,7 @@ export async function realCostMap(ids) {
 // when the product has been deleted
 export function lineCost(item, costs) {
   const c = costs.get(String(item.product?._id || item.product))
-  return c ? c.realCost : Number(item.cost) || 0
+  return c ? costOfLine(c, item).realCost : Number(item.cost) || 0
 }
 
 // split of a line cost into base part and ad part (for charts)
@@ -68,7 +88,7 @@ export function lineCostParts(item, costs) {
   const c = costs.get(String(item.product?._id || item.product))
   const qty = Number(item.qty) || 0
   if (!c) return { base: (Number(item.cost) || 0) * qty, ad: 0 }
-  return { base: c.baseCost * qty, ad: c.adPerUnit * qty }
+  return { base: costOfLine(c, item).baseCost * qty, ad: c.adPerUnit * qty }
 }
 
 // adds realCost to every item of the given (lean) orders, for the admin order screens
